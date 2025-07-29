@@ -39,9 +39,9 @@ function App() {
       <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: '2em' }}>
         <div>
           <strong>Total Points:</strong> {totalPoints}
-        </div>
         <div>
           <strong>Infrastructure Types:</strong> {uniqueTypes}
+        </div>
         </div>
         <div>
           <strong>Organizations:</strong> {uniqueOrgs}
