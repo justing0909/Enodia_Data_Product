@@ -38,7 +38,7 @@ export default function App() {
       `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&q=${encodeURIComponent(search)}`,
       { signal: ctrl.signal }
     )
-      .then(r => r.json())
+      .then(res => res.json())
       .then(data => setSuggestions(data))
       .catch(err => { if (!ctrl.signal.aborted) console.error(err); });
     return () => ctrl.abort();
@@ -55,23 +55,22 @@ export default function App() {
     setSelectedId(id);
   };
 
-  // Perform search via first result
-  const handleSearch = () => {
-    if (!search) return;
-    fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(search)}`
-    )
-      .then(r => r.json())
-      .then(data => {
-        if (data[0]) {
-          handleSelection([+data[0].lat, +data[0].lon], null, data[0].display_name);
-        }
-      })
-      .catch(console.error);
+  // Perform search via Enter key
+  const handleSearchKey = e => {
+    if (e.key === 'Enter' && search) {
+      fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(search)}`
+      )
+        .then(res => res.json())
+        .then(data => {
+          if (data[0]) {
+            handleSelection([+data[0].lat, +data[0].lon], null, data[0].display_name);
+          }
+        })
+        .catch(console.error);
+      setSuggestions([]);
+    }
   };
-
-  // Handle Enter key search
-  const handleSearchKey = e => { if (e.key === 'Enter') handleSearch(); };
 
   return (
     <div className={`app${dark ? ' dark' : ''}`}>
@@ -86,7 +85,6 @@ export default function App() {
             onChange={e => setSearch(e.target.value)}
             onKeyDown={handleSearchKey}
           />
-          <button className="search-button" onClick={handleSearch}>Search</button>
           {suggestions.length > 0 && (
             <ul className="suggestions-list">
               {suggestions.map(p => (

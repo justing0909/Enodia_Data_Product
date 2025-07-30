@@ -291,3 +291,8 @@ td {
   opacity: 0.5;
   cursor: default;
 }
+
+.pagination button,
+.pagination span {
+  color: var(--fg-muted);
+}
