@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 import PointsMap from './PointsMap';
 import DataExplorerPanel from './DataExplorerPanel';
@@ -9,21 +9,30 @@ import logo from './assets/enodia_logo.png';
 export default function App() {
   const [tab, setTab] = useState('Data Explorer');
   const [dark, setDark] = useState(
-    () => window.matchMedia?.('(prefers-color-scheme: dark)').matches
+    () => window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
   );
+
   const [search, setSearch] = useState('');
   const [suggestions, setSuggestions] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const skipFetchRef = useRef(false);
   const [selectedPos, setSelectedPos] = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
 
-  // persist dark mode preference
+  // Persist dark mode
   useEffect(() => {
     localStorage.setItem('darkMode', dark);
   }, [dark]);
 
-  // fetch suggestions as user types
+  // Autocomplete suggestions
   useEffect(() => {
-    if (search.length < 3) return setSuggestions([]);
+    if (skipFetchRef.current) {
+      skipFetchRef.current = false;
+      return;
+    }
+    if (search.length < 3) {
+      setSuggestions([]);
+      return;
+    }
     const ctrl = new AbortController();
     fetch(
       `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&q=${encodeURIComponent(search)}`,
@@ -35,12 +44,34 @@ export default function App() {
     return () => ctrl.abort();
   }, [search]);
 
-  const handleSelect = place => {
-    setSearch(place.display_name);
-    setSearchQuery(place.display_name);
-    setSuggestions([]);
-    setSelectedPos([+place.lat, +place.lon]);
+  // Handle selecting suggestion or row
+  const handleSelection = (coords, id = null, label = null) => {
+    if (label !== null) {
+      setSearch(label);
+      skipFetchRef.current = true;
+      setSuggestions([]);
+    }
+    setSelectedPos(coords);
+    setSelectedId(id);
   };
+
+  // Perform search via first result
+  const handleSearch = () => {
+    if (!search) return;
+    fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(search)}`
+    )
+      .then(r => r.json())
+      .then(data => {
+        if (data[0]) {
+          handleSelection([+data[0].lat, +data[0].lon], null, data[0].display_name);
+        }
+      })
+      .catch(console.error);
+  };
+
+  // Handle Enter key search
+  const handleSearchKey = e => { if (e.key === 'Enter') handleSearch(); };
 
   return (
     <div className={`app${dark ? ' dark' : ''}`}>
@@ -53,25 +84,17 @@ export default function App() {
             placeholder="Search city..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                setSearchQuery(search);
-                setSuggestions([]);
-                // also zoom via selectedPos
-                fetch(
-                  `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(search)}`
-                )
-                  .then(r => r.json())
-                  .then(data => {
-                    if (data[0]) setSelectedPos([+data[0].lat, +data[0].lon]);
-                  });
-              }
-            }}
+            onKeyDown={handleSearchKey}
           />
+          <button className="search-button" onClick={handleSearch}>Search</button>
           {suggestions.length > 0 && (
             <ul className="suggestions-list">
               {suggestions.map(p => (
-                <li key={p.place_id} className="suggestion-item" onClick={() => handleSelect(p)}>
+                <li
+                  key={p.place_id}
+                  className="suggestion-item"
+                  onClick={() => handleSelection([+p.lat, +p.lon], null, p.display_name)}
+                >
                   {p.display_name}
                 </li>
               ))}
@@ -89,14 +112,20 @@ export default function App() {
           {dark ? <Sun size={20} /> : <Moon size={20} />}
         </button>
       </header>
+
       <div className="map-container">
-        <PointsMap dark={dark} searchQuery={searchQuery} highlightPos={selectedPos} />
+        <PointsMap dark={dark} highlightPos={selectedPos} />
       </div>
+
       <aside className="sidebar">
         {tab === 'Data Explorer' ? (
-          <DataExplorerPanel onRowClick={coords => setSelectedPos(coords)} />
+          <DataExplorerPanel
+            onRowClick={(coords, id) => handleSelection(coords, id)}
+            selectedId={selectedId}
+            clearSelection={() => handleSelection(null, null)}
+          />
         ) : (
-          <SimulationPanel onRowClick={coords => setSelectedPos(coords)} />
+          <SimulationPanel onRowClick={coords => handleSelection(coords)} />
         )}
       </aside>
     </div>

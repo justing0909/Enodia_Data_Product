@@ -1,62 +1,126 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import PropTypes from 'prop-types';
 
-export default function DataExplorerPanel({ onRowClick, rows: propRows }) {
-  const [rows, setRows] = useState([]);
-  const [filter, setFilter] = useState('');
+export default function DataExplorerPanel({ onRowClick, rows: propRows, selectedId, clearSelection }) {
+  const [originalRows, setOriginalRows] = useState([]);
+  const [filterField, setFilterField] = useState('');
+  const [filterOp, setFilterOp] = useState('equals');
+  const [filterValue, setFilterValue] = useState('');
+  const [sortCol, setSortCol] = useState(null);
+  const [sortDir, setSortDir] = useState('asc');
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
   useEffect(() => {
-    if (propRows) {
-      setRows(propRows);
-    } else {
-      fetch('/api/points')
-        .then(res => res.json())
-        .then(data => setRows(data))
-        .catch(console.error);
-    }
+    if (propRows) setOriginalRows(propRows);
+    else fetch('/sampleData.json')
+      .then(r => r.json())
+      .then(data => setOriginalRows(data))
+      .catch(console.error);
   }, [propRows]);
 
-  const filtered = rows.filter(r =>
-    Object.values(r).some(val =>
-      String(val).toLowerCase().includes(filter.toLowerCase())
-    )
-  );
-  const totalPages = Math.ceil(filtered.length / pageSize);
-  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const columns = [
+    { label: 'ID', key: 'id' },
+    { label: 'Name', key: 'name' },
+    { label: 'Latitude', key: 'lat' },
+    { label: 'Longitude', key: 'lng' },
+  ];
+
+  const applyFilter = r => {
+    if (!filterField || filterValue === '') return true;
+    const v = String(r[filterField]).toLowerCase();
+    const q = filterValue.toLowerCase();
+    switch (filterOp) {
+      case 'equals': return v === q;
+      case 'contains': return v.includes(q);
+      case 'gt': return parseFloat(r[filterField]) > parseFloat(filterValue);
+      case 'lt': return parseFloat(r[filterField]) < parseFloat(filterValue);
+      default: return true;
+    }
+  };
+
+  const processedRows = useMemo(() => {
+    let rows = originalRows.filter(applyFilter);
+    if (sortCol != null) {
+      const key = columns[sortCol].key;
+      rows = [...rows].sort((a, b) => {
+        if (a[key] === b[key]) return 0;
+        return sortDir === 'asc'
+          ? a[key] < b[key] ? -1 : 1
+          : a[key] > b[key] ? -1 : 1;
+      });
+    }
+    return rows;
+  }, [originalRows, filterField, filterOp, filterValue, sortCol, sortDir]);
+
+  const totalPages = Math.ceil(processedRows.length / pageSize);
+  const paginated = processedRows.slice((page - 1) * pageSize, page * pageSize);
 
   return (
-    <div className="panel">
+    <div className="panel" style={{ width: 'fit-content' }}>
       <h2 className="panel-title">Data Explorer</h2>
-      <input
-        className="filter-input"
-        type="text"
-        placeholder="Filter..."
-        value={filter}
-        onChange={e => { setFilter(e.target.value); setPage(1); }}
-      />
+      <div style={{ marginBottom: '8px' }}>
+        <button className="clear-button" onClick={clearSelection} disabled={!selectedId}>
+          Clear Selection
+        </button>
+        <button className="desort-button" onClick={() => setSortCol(null)} disabled={sortCol == null}>
+          De-sort Table
+        </button>
+      </div>
+
+      <div className="filter-bar">
+        <select value={filterField} onChange={e => { setFilterField(e.target.value); setPage(1); }}>
+          <option value="">-- Field --</option>
+          {columns.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+        </select>
+        <select value={filterOp} onChange={e => setFilterOp(e.target.value)}>
+          <option value="equals">Equals</option>
+          <option value="contains">Contains</option>
+          <option value="gt">Greater Than</option>
+          <option value="lt">Less Than</option>
+        </select>
+        <input
+          type="text"
+          placeholder="Value"
+          value={filterValue}
+          onChange={e => setFilterValue(e.target.value)}
+          style={{ maxWidth: '60px' }}
+        />
+      </div>
+
       <div className="table-container">
         <table>
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th>Latitude</th>
-              <th>Longitude</th>
+              {columns.map((c, i) => (
+                <th key={c.key} onClick={() => {
+                  if (sortCol === i) setSortDir(dir => dir === 'asc' ? 'desc' : 'asc');
+                  else { setSortCol(i); setSortDir('asc'); }
+                }}>
+                  {c.label}
+                  {sortCol === i && (
+                    <span className="sort-arrow">{sortDir === 'asc' ? '\u25B2' : '\u25BC'}</span>
+                  )}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {paginated.map(r => (
-              <tr key={r.id} onClick={() => onRowClick([r.lat, r.lng])}>
-                <td>{r.id}</td>
-                <td>{r.name}</td>
-                <td>{r.lat.toFixed(4)}</td>
-                <td>{r.lng.toFixed(4)}</td>
+              <tr
+                key={r.id}
+                className={r.id === selectedId ? 'selected-row' : ''}
+                onClick={() => onRowClick([r.lat, r.lng], r.id)}
+              >
+                {columns.map(c => (
+                  <td key={c.key}>{c.key.match(/lat|lng/) ? r[c.key].toFixed(4) : r[c.key]}</td>
+                ))}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
       <div className="pagination">
         <button disabled={page === 1} onClick={() => setPage(p => p - 1)}>Prev</button>
         <span>Page {page} of {totalPages}</span>
@@ -65,3 +129,10 @@ export default function DataExplorerPanel({ onRowClick, rows: propRows }) {
     </div>
   );
 }
+
+DataExplorerPanel.propTypes = {
+  onRowClick: PropTypes.func.isRequired,
+  rows: PropTypes.array,
+  selectedId: PropTypes.number,
+  clearSelection: PropTypes.func.isRequired
+};
