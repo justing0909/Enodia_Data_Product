@@ -5,7 +5,7 @@ import PointsMap from './PointsMap';
 import DataExplorerPanel from './DataExplorerPanel';
 import SimulationPanel from './SimulationPanel';
 import InfrastructureExplorer from './InfrastructureExplorer';
-import { Sun, Moon, Search } from 'lucide-react';
+import { Sun, Moon, Search, Droplet, Wind, FireExtinguisher, Snowflake, Cpu } from 'lucide-react';
 import logo from './assets/enodia_logo.png';
 import sampleSites from './data/sampleData.json';
 import { fetchOsmInfrastructure } from './utils/fetchOsmLines';
@@ -17,6 +17,31 @@ const SUBTABS = {
   INFRA: 'Infrastructure',
 };
 
+// Disaster definitions (icon-only)
+const DISASTERS = [
+  { key: 'flood', label: 'Flood', Icon: Droplet },
+  { key: 'hurricane', label: 'Hurricane', Icon: Wind },
+  { key: 'wildfire', label: 'Wildfire', Icon: FireExtinguisher },
+  { key: 'winter', label: 'Winter Storm', Icon: Snowflake },
+  { key: 'cyber', label: 'Cyberattack', Icon: Cpu },
+];
+
+function getDefaultParams(disaster) {
+  switch (disaster) {
+    case 'flood':
+      return { intensity: 'medium', duration: '6h', area: 'low-lying' };
+    case 'hurricane':
+      return { windSpeed: '80mph', category: 2, stormSurge: '2ft' };
+    case 'wildfire':
+      return { dryness: 'high', wind: '10mph', spreadRate: 'moderate' };
+    case 'winter':
+      return { temp: '15°F', snowfall: '8in', ice: 'light' };
+    case 'cyber':
+      return { vector: 'phishing', severity: 'medium', duration: '2h' };
+    default:
+      return {};
+  }
+}
 
 // Hook: dark mode with persistence
 function useDarkMode() {
@@ -286,11 +311,12 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(null);
   const [selectedLine, setSelectedLine] = useState(null);
   const skipProgrammaticRef = useRef(false);
-  const [selectedDisaster, setSelectedDisaster] = useState('Flood');
-  const [simulationParams, setSimulationParams] = useState({
-  intensity: 'medium',
-  duration: '1h',
-  });
+
+  // Disaster + simulation state
+  const [selectedDisaster, setSelectedDisaster] = useState('flood');
+  const [simulationParams, setSimulationParams] = useState(() =>
+    getDefaultParams('flood')
+  );
 
   const [infrastructureLayers, setInfrastructureLayers] = useState([
     {
@@ -381,6 +407,12 @@ export default function App() {
     [handleSelection]
   );
 
+  // Handle disaster change
+  const handleDisasterClick = useCallback(d => {
+    setSelectedDisaster(d);
+    setSimulationParams(getDefaultParams(d));
+  }, []);
+
   return (
     <div className={`app${dark ? ' dark' : ''}`}>
       <header className="header">
@@ -394,6 +426,7 @@ export default function App() {
           onSelectSuggestion={onSelectSuggestion}
           placeholder="Search city..."
         />
+
         <div className="tabs" role="tablist">
           {TOP_TABS.map(t => (
             <button
@@ -407,6 +440,28 @@ export default function App() {
             </button>
           ))}
         </div>
+
+        {/* Disaster selector only when simulation tab is active */}
+        {tab === 'Simulation' && (
+          <div className="disaster-selector" style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+            {DISASTERS.map(d => {
+              const ActiveIcon = d.Icon;
+              return (
+                <button
+                  key={d.key}
+                  className={`folder-tab ${selectedDisaster === d.key ? 'active' : ''}`}
+                  onClick={() => handleDisasterClick(d.key)}
+                  aria-pressed={selectedDisaster === d.key}
+                  title={d.label}
+                  style={{ padding: '8px', minWidth: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <ActiveIcon size={16} aria-hidden="true" />
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <button
           className="toggle-button"
           onClick={() => setDark(d => !d)}
