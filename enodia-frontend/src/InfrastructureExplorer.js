@@ -38,13 +38,19 @@ export default function InfrastructureExplorer({
                 <span>{layer.displayName}</span>
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <button
+                <label
+                  className="switch"
                   aria-label={`Toggle ${layer.displayName}`}
-                  onClick={() => onToggleLayer && onToggleLayer(layer.key)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                  style={{ cursor: 'pointer' }}
+                  onClick={(e) => e.stopPropagation?.()} // prevents row click if the whole row is clickable
                 >
-                  {layer.enabled ? '🟢' : '⚪'}
-                </button>
+                  <input
+                    type="checkbox"
+                    checked={!!layer.enabled}
+                    onChange={() => onToggleLayer && onToggleLayer(layer.key)}
+                  />
+                  <span className="slider" />
+                </label>
                 <button
                   onClick={() => {}}
                   aria-label={`Expand metadata for ${layer.displayName}`}

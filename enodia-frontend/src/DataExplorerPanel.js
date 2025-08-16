@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import sampleData from './data/sampleData.json';
 
+
 export default function DataExplorerPanel({
   onRowClick,
   rows: propRows,

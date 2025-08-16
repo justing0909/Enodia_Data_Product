@@ -5,7 +5,9 @@ import PointsMap from './PointsMap';
 import DataExplorerPanel from './DataExplorerPanel';
 import SimulationPanel from './SimulationPanel';
 import InfrastructureExplorer from './InfrastructureExplorer';
-import { Sun, Moon, Search, Droplet, Wind, FireExtinguisher, Snowflake, Cpu } from 'lucide-react';
+import ProtectedRoute from './components/ProtectedRoute';
+import { AuthProvider, useAuth } from './contexts/AuthProvider';
+import { Sun, Moon, Search, Droplet, Wind, FireExtinguisher, Snowflake, Cpu, LogOut } from 'lucide-react';
 import logo from './assets/enodia_logo.png';
 import sampleSites from './data/sampleData.json';
 import { fetchOsmInfrastructure } from './utils/fetchOsmLines';
@@ -132,7 +134,7 @@ function Autocomplete({
       .catch(err => {
         if (!controller.signal.aborted) {
           console.error('Autocomplete fetch error', err);
-          setError('Couldn’t load suggestions.');
+          setError("Couldn't load suggestions.");
           setIsOpen(false);
         }
       });
@@ -303,7 +305,91 @@ function ExplorerSubtabs({
   );
 }
 
-export default function App() {
+// User menu component
+function UserMenu() {
+  const { user, signOut } = useAuth();
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="user-menu" style={{ position: 'relative' }}>
+      <button
+        className="user-button"
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          background: 'none',
+          border: 'none',
+          color: 'var(--fg)',
+          padding: '8px',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+        }}
+      >
+        <div
+          style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '50%',
+            background: 'var(--brand-color)',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '14px',
+            fontWeight: '600',
+          }}
+        >
+          {user?.email?.[0]?.toUpperCase() || 'U'}
+        </div>
+        <span>{user?.email}</span>
+      </button>
+      
+      {isOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '100%',
+            right: '0',
+            background: 'var(--bg)',
+            border: '1px solid var(--border)',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+            minWidth: '160px',
+            zIndex: 1000,
+            marginTop: '4px',
+          }}
+        >
+          <button
+            onClick={() => {
+              signOut();
+              setIsOpen(false);
+            }}
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              background: 'none',
+              border: 'none',
+              color: 'var(--fg)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '14px',
+            }}
+          >
+            <LogOut size={16} />
+            Sign Out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MainApp() {
+  const { handleAuthCallback } = useAuth();
   const [tab, setTab] = useState(TOP_TABS[0]);
   const [dark, setDark] = useDarkMode();
   const [search, setSearch] = useState('');
@@ -352,6 +438,9 @@ export default function App() {
       enabled: false,
     },
   ]);
+
+  // Auth callback is now handled in AuthProvider's checkAuthState
+  // No need for duplicate handling here
 
   // Load OSM infrastructure once on mount
   useEffect(() => {
@@ -462,6 +551,8 @@ export default function App() {
           </div>
         )}
 
+        <UserMenu />
+
         <button
           className="toggle-button"
           onClick={() => setDark(d => !d)}
@@ -506,5 +597,15 @@ export default function App() {
         </aside>
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <ProtectedRoute>
+        <MainApp />
+      </ProtectedRoute>
+    </AuthProvider>
   );
 }
