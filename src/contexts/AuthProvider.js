@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 const AuthContext = createContext();
 
 // AWS Cognito configuration
+// establish environment variables for security
 const COGNITO_CONFIG = {
   userPoolId: process.env.REACT_APP_COGNITO_USER_POOL_ID,
   clientId: process.env.REACT_APP_COGNITO_CLIENT_ID,
@@ -13,19 +14,7 @@ const COGNITO_CONFIG = {
   domain: process.env.REACT_APP_COGNITO_DOMAIN,
 };
 
-// Debug: Log configuration on load (remove this after debugging)
-console.log('🔧 Cognito Config Loaded:', {
-  userPoolId: COGNITO_CONFIG.userPoolId,
-  clientId: COGNITO_CONFIG.clientId,
-  hasClientSecret: !!COGNITO_CONFIG.clientSecret,
-  clientSecretLength: COGNITO_CONFIG.clientSecret ? COGNITO_CONFIG.clientSecret.length : 0,
-  region: COGNITO_CONFIG.region,
-  redirectUri: COGNITO_CONFIG.redirectUri,
-  redirectUriFromEnv: process.env.REACT_APP_REDIRECT_URI,
-  windowLocationOrigin: window.location.origin,
-  domain: COGNITO_CONFIG.domain,
-});
-
+// validate configuration
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -34,53 +23,61 @@ export const useAuth = () => {
   return context;
 };
 
+// AuthProvider component to manage authentication state
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-
+  
+  // check authentication state on mount
   useEffect(() => {
     checkAuthState();
   }, []);
 
+  // function to check authentication state
   const checkAuthState = async () => {
     console.log('🔍 Checking auth state...');
     
     try {
-      // Check for authorization code in URL first
+      // check for authorization code in URL first
       const urlParams = new URLSearchParams(window.location.search);
       const authCode = urlParams.get('code');
       
+      // if we have an auth code, process it
       if (authCode) {
         console.log('✅ Found auth code in URL, processing...');
         await handleAuthCallback(authCode);
-        // Clean up URL after processing
+
+        // clean up URL after processing
         window.history.replaceState({}, document.title, window.location.pathname);
         return;
       }
       
-      // Check for stored tokens or session
+      // check for stored tokens or session
       const token = localStorage.getItem('accessToken');
       const refreshToken = localStorage.getItem('refreshToken');
       
-      console.log('🔍 Checking stored tokens...', { hasToken: !!token, hasRefreshToken: !!refreshToken });
+      // console.log('🔍 Checking stored tokens...', { hasToken: !!token, hasRefreshToken: !!refreshToken });
       
       if (token) {
-        // Validate token and get user info
+        // validate token and get user info
         const userInfo = await validateToken(token);
+
+        // specifically checks if token is valid
         if (userInfo) {
-          console.log('✅ Valid token found, user authenticated');
+          // console.log('✅ Valid token found, user authenticated');
           setUser(userInfo);
           setIsAuthenticated(true);
-        } else {
-          // Token invalid, try refresh
-          console.log('❌ Token invalid, trying refresh...');
+          }
+          else {
+          // token invalid, try refresh
+          // console.log('❌ Token invalid, trying refresh...');
           if (refreshToken) {
             await refreshAccessToken(refreshToken);
           }
         }
       } else {
-        console.log('❌ No tokens found, user needs to authenticate');
+        console.log('No tokens found, user needs to authenticate');   // no tokens, user not authenticated
       }
     } catch (error) {
       console.error('Auth check failed:', error);
@@ -90,6 +87,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // function to validate JWT token
   const validateToken = async (token) => {
     try {
       // Decode JWT token to get user info
@@ -100,6 +98,7 @@ export const AuthProvider = ({ children }) => {
         return null;
       }
       
+      // return user info from token payload
       return {
         sub: payload.sub,
         email: payload.email,
@@ -111,8 +110,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // function to refresh access token using refresh token.
+  // this function will be called if the access token is expired
   const refreshAccessToken = async (refreshToken) => {
     try {
+      // communicates with Cognito to refresh the access token
       const response = await fetch(`https://${COGNITO_CONFIG.domain}/oauth2/token`, {
         method: 'POST',
         headers: {
@@ -125,6 +127,7 @@ export const AuthProvider = ({ children }) => {
         }),
       });
 
+      // Check if the response is ok
       if (response.ok) {
         const tokens = await response.json();
         localStorage.setItem('accessToken', tokens.access_token);
@@ -132,11 +135,14 @@ export const AuthProvider = ({ children }) => {
           localStorage.setItem('refreshToken', tokens.refresh_token);
         }
         
+        // validate the new access token
         const userInfo = await validateToken(tokens.access_token);
         if (userInfo) {
           setUser(userInfo);
           setIsAuthenticated(true);
         }
+
+      // if the response is not ok, clear tokens
       } else {
         clearTokens();
       }
@@ -146,15 +152,16 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // redirects the user to the Cognito hosted UI for authentication (when "Sign In" button is clicked)
   const signInWithCognito = () => {
     try {
-      console.log('🚀 Initiating sign in with Cognito...');
-      console.log('📋 Config:', {
+      // console.log('🚀 Initiating sign in with Cognito...');
+      /* console.log('📋 Config:', {
         clientId: COGNITO_CONFIG.clientId,
         domain: COGNITO_CONFIG.domain,
         redirectUri: COGNITO_CONFIG.redirectUri,
         hasClientSecret: !!COGNITO_CONFIG.clientSecret
-      });
+      }); */
       
       const params = new URLSearchParams({
         client_id: COGNITO_CONFIG.clientId,
@@ -164,14 +171,15 @@ export const AuthProvider = ({ children }) => {
       });
       
       const cognitoUrl = `https://${COGNITO_CONFIG.domain}/login?${params}`;
-      console.log('🔗 Redirecting to:', cognitoUrl);
+      // console.log('🔗 Redirecting to:', cognitoUrl);
       
       window.location.href = cognitoUrl;
     } catch (error) {
-      console.error('🚨 Error in signInWithCognito:', error);
+      // console.error('🚨 Error in signInWithCognito:', error);
     }
   };
 
+  // redirects the user to the Cognito hosted UI for sign up (when "Sign Up" button is clicked)
   const signUpWithCognito = () => {
     const params = new URLSearchParams({
       client_id: COGNITO_CONFIG.clientId,
@@ -183,8 +191,10 @@ export const AuthProvider = ({ children }) => {
     window.location.href = `https://${COGNITO_CONFIG.domain}/signup?${params}`;
   };
 
+  // handles the callback from Cognito after authentication
+  // this function will be called after the user is redirected back to the app with an authorization
   const handleAuthCallback = async (authorizationCode) => {
-    console.log('🔄 Processing auth callback with code:', authorizationCode.substring(0, 10) + '...');
+    // console.log('🔄 Processing auth callback with code:', authorizationCode.substring(0, 10) + '...');
     
     try {
       const tokenRequestBody = {
@@ -194,19 +204,20 @@ export const AuthProvider = ({ children }) => {
         redirect_uri: COGNITO_CONFIG.redirectUri,
       };
 
-      // Add client_secret if it exists
+      // add client_secret
       if (COGNITO_CONFIG.clientSecret) {
         tokenRequestBody.client_secret = COGNITO_CONFIG.clientSecret;
-        console.log('🔐 Using client secret (length):', COGNITO_CONFIG.clientSecret.length);
+        // console.log('🔐 Using client secret (length):', COGNITO_CONFIG.clientSecret.length);
       }
 
-      console.log('📡 Making token request to:', `https://${COGNITO_CONFIG.domain}/oauth2/token`);
-      console.log('📡 Request body (sanitized):', { 
+      // console.log('📡 Making token request to:', `https://${COGNITO_CONFIG.domain}/oauth2/token`);
+      /* console.log('📡 Request body (sanitized):', { 
         ...tokenRequestBody, 
         client_secret: tokenRequestBody.client_secret ? '[REDACTED]' : 'Not provided',
         code: '[REDACTED]'
-      });
+      }); */
 
+      //* make the request to exchange authorization code for tokens (important)
       const response = await fetch(`https://${COGNITO_CONFIG.domain}/oauth2/token`, {
         method: 'POST',
         headers: {
@@ -215,21 +226,24 @@ export const AuthProvider = ({ children }) => {
         body: new URLSearchParams(tokenRequestBody),
       });
 
-      console.log('📡 Token exchange response status:', response.status);
-      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+      // console.log('📡 Token exchange response status:', response.status);
+      // console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
 
+      // check if the response is ok. if so, parse the tokens and validate the user info.
+      // if not, log the error and clear tokens
       if (response.ok) {
         const tokens = await response.json();
-        console.log('✅ Tokens received successfully');
+        // console.log('✅ Tokens received successfully');
         
         localStorage.setItem('accessToken', tokens.access_token);
         if (tokens.refresh_token) {
           localStorage.setItem('refreshToken', tokens.refresh_token);
         }
         
+        // validate the access token and get user info
         const userInfo = await validateToken(tokens.access_token);
         if (userInfo) {
-          console.log('✅ User info validated:', userInfo.email);
+          // console.log('✅ User info validated:', userInfo.email);
           setUser(userInfo);
           setIsAuthenticated(true);
         }
@@ -249,30 +263,34 @@ export const AuthProvider = ({ children }) => {
         }
       }
     } catch (error) {
-      console.error('❌ Auth callback failed:', error);
+      console.error('Auth callback failed:', error);
     }
   };
 
+  // function to sign out the user
   const signOut = () => {
     clearTokens();
     setUser(null);
     setIsAuthenticated(false);
     
-    // Optional: Sign out from Cognito hosted UI
+                                                                  //! IN DEVELOPMENT: Sign out from Cognito hosted UI
     const params = new URLSearchParams({
       client_id: COGNITO_CONFIG.clientId,
-      logout_uri: COGNITO_CONFIG.redirectUri,  // This should be 'logout_uri' for the logout endpoint
+      logout_uri: COGNITO_CONFIG.redirectUri,
     });
     
-    // For Cognito, the logout endpoint is /logout, not /oauth2/logout
+    // redirect to Cognito logout endpoint
     window.location.href = `https://${COGNITO_CONFIG.domain}/logout?${params}`;
   };
 
+  // clear tokens from local storage
   const clearTokens = () => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
   };
 
+  // provide context value
+  // this will be used by components to access authentication state and methods
   const value = {
     user,
     isAuthenticated,

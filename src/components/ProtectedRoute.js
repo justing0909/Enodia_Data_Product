@@ -1,4 +1,7 @@
 // src/components/ProtectedRoute.js
+// This component protects routes that require authentication.
+// If the user is not authenticated, it redirects them to the AuthPage.
+
 import React from 'react';
 import { useAuth } from '../contexts/AuthProvider';
 import AuthPage from './AuthPage';

@@ -1,6 +1,7 @@
-
 const REACT_APP_LAMBDA_API_URL = process.env.REACT_APP_LAMBDA_API_URL;
 
+// fetch points from the API
+// this will call the API to get all points and return them as JSON
 export async function fetchPoints() {
   const response = await fetch(REACT_APP_LAMBDA_API_URL, {
     method: 'GET',
@@ -10,6 +11,8 @@ export async function fetchPoints() {
   return response.json();
 }
 
+// add a new point to the API
+// this will call the API to add a point and return the created point
 export async function addPoint(pointData) {
   const response = await fetch(REACT_APP_LAMBDA_API_URL, {
     method: 'POST',
@@ -20,4 +23,4 @@ export async function addPoint(pointData) {
   return response.json();
 }
 
-// Add updatePoint, deletePoint, etc. as needed
+//! IN DEVELOPMENT: Add updatePoint, deletePoint, etc. as needed

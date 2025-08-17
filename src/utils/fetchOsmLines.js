@@ -1,17 +1,22 @@
 // utils/fetchOsmLines.js
 export async function fetchOsmInfrastructure() {
-  // Use the Kennebec County, Maine administrative area
-  // First get the relation (or way/node) for Kennebec County
+  // using Kennebec County Maine as an example area
+
+  // first define the area for Kennebec County Maine
   const areaQuery = `
     [out:json][timeout:25];
     area["name"="Kennebec County"]["boundary"="administrative"]["admin_level"="6"];
     out ids;
   `;
+
+  // fetch the area ID from Overpass API
   const areaRes = await fetch('https://overpass-api.de/api/interpreter', {
     method: 'POST',
     body: areaQuery,
     headers: { 'Content-Type': 'text/plain' },
   });
+
+  // check if the area fetch was successful
   if (!areaRes.ok) {
     throw new Error(`Overpass area lookup failed: ${areaRes.status}`);
   }
@@ -23,13 +28,15 @@ export async function fetchOsmInfrastructure() {
   // Overpass returns an "area" element already when you query with area[...] in this manner,
   // so the returned element should already be an area ID. But to be safe if it's a relation fallback:
   let rawId = areaJson.elements[0].id;
-  // According to Overpass spec, area IDs for relations are relation_id + 3600000000.
-  // If this element is less than 3600000000, assume it's a relation and add the offset.
-  // (If Overpass already returned an area object, it will be >= 3600000000.)
+
+
+  // area IDs for relations are relation_id + 3600000000 (offset).
+  // if this element is less than 3600000000, assume it's a relation and add the offset.
+  // (if Overpass already returned an area object, it'll be >= 3600000000.)
   const AREA_OFFSET = 3600000000;
   const areaId = rawId >= AREA_OFFSET ? rawId : rawId + AREA_OFFSET;
 
-  // Now fetch infrastructure within that area
+  // now fetch infrastructure within that area. first, define the query
   const infraQuery = `
     [out:json][timeout:50];
     area(${areaId})->.searchArea;
@@ -43,21 +50,24 @@ export async function fetchOsmInfrastructure() {
     out geom;
   `;
 
+  // then fetch the infrastructure data
   const infraRes = await fetch('https://overpass-api.de/api/interpreter', {
     method: 'POST',
     body: infraQuery,
     headers: { 'Content-Type': 'text/plain' },
   });
+
+  // check if the infrastructure fetch was successful
   if (!infraRes.ok) {
     throw new Error(`Overpass infrastructure fetch failed: ${infraRes.status}`);
   }
   const osm = await infraRes.json();
 
-  // Convert to GeoJSON features
+  // convert to geoJSON features
   const features = [];
   osm.elements.forEach(el => {
     if (el.type === 'way' && el.geometry) {
-      const coords = el.geometry.map(g => [g.lon, g.lat]); // GeoJSON expects [lon, lat]
+      const coords = el.geometry.map(g => [g.lon, g.lat]); // geoJSON expects [lon, lat]
       let layerType = 'other';
       if (el.tags) {
         if (el.tags.power === 'line') layerType = 'electricity';
@@ -70,6 +80,7 @@ export async function fetchOsmInfrastructure() {
         else if (el.tags.railway) layerType = 'rail';
       }
 
+      // create the feature (LineString)
       features.push({
         type: 'Feature',
         properties: {
@@ -85,6 +96,8 @@ export async function fetchOsmInfrastructure() {
     }
   });
 
+  // group features by layer type
+  // this will help in rendering different layers in the map
   const grouped = { electricity: [], water: [], road: [], rail: [], other: [] };
   features.forEach(f => {
     const key = f.properties.layerType || 'other';

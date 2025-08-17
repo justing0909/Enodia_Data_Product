@@ -1,4 +1,7 @@
 // src/components/AuthPage.js
+// This component handles user authentication via AWS Cognito.
+// It allows users to sign in or sign up, and displays a simple UI with branding.
+
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthProvider';
 import logo from '../assets/enodia_logo.png';
@@ -17,6 +20,7 @@ export default function AuthPage() {
   };
 
   return (
+    /* Signing up or signing in */
     <div className="auth-container">
       <div className="auth-card">
         <div className="auth-header">
@@ -44,6 +48,8 @@ export default function AuthPage() {
             <span>or</span>
           </div>
 
+
+          {/* For if you don't have an account. */}
           <div className="auth-toggle">
             <p>
               {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
@@ -57,6 +63,8 @@ export default function AuthPage() {
           </div>
         </div>
 
+
+        {/* Footer content with terms & conditions */}
         <div className="auth-footer">
           <p>
             By continuing, you agree to our{' '}

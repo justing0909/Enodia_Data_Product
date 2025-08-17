@@ -72,6 +72,7 @@ html, body, #root {
 .search-bar {
   position: relative;
   margin-right: 24px;
+  z-index: 5000;
 }
 .search-bar input {
   padding: 6px 8px 6px 32px;
@@ -108,7 +109,7 @@ html, body, #root {
   box-shadow: 0 4px 8px rgba(0,0,0,0.1);
   max-height: 200px;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: 5001;
   list-style: none;
   margin: 4px 0 0;
   padding: 0;
@@ -356,7 +357,7 @@ td {
   border-radius: 4px;
 }
 
-/* ==== Vertical file-folder-style tabs on top-left protruding from panel ==== */
+/* vertical file-folder-style tabs on top-left protruding from panel */
 .data-explorer-with-subtabs {
   display: flex;
   position: relative;
@@ -366,7 +367,7 @@ td {
 
 
 
-/* Container for the left vertical tabs */
+/* container for the left vertical tabs */
 .folder-tabs {
   display: flex;
   flex-direction: column;
@@ -377,7 +378,7 @@ td {
   z-index: 100;
 }
 
-/* Each tab styled like a folder tab with vertical text */
+/* each tab styled like a folder tab with vertical text */
 .folder-tab {
   background: var(--sidebar-bg);
   border: 1px solid var(--border);
@@ -403,7 +404,7 @@ td {
   box-shadow: 0 4px 20px rgba(49,130,206,0.6);
 }
 
-/* Content area next to tabs */
+/* content area next to tabs */
 .folder-content {
   flex: 1;
   margin-left: 12px;
@@ -417,7 +418,7 @@ td {
 }
 
 
-/* Infrastructure explorer text lighter for readability */
+/* infrastructure explorer text lighter for readability */
 .infrastructure-explorer {
   color: var(--fg);
 }
@@ -444,7 +445,7 @@ td {
   font-size: 0.85rem;
 }
 
-/* ==== Pretty toggle switch instead of default checkbox ==== */
+/* toggle switch for infrastructure lines */
 .switch {
   position: relative;
   display: inline-block;
@@ -485,7 +486,7 @@ input:checked + .slider:before {
   transform: translateX(18px);
 }
 
-/* Optional: small legend-dot tweak to match lighter scheme */
+/* small legend-dot tweak to match lighter scheme */
 .legend-dot {
   display: inline-block;
   width: 10px;
@@ -527,7 +528,7 @@ input:checked + .slider:before {
 }
 
 .simulation-panel {
-  color: var(--fg); /* lighter primary text */
+  color: var(--fg);
 }
 
 .simulation-panel label {
@@ -546,14 +547,14 @@ input:checked + .slider:before {
 }
 
 .autocomplete-wrapper {
-  position: relative; /* ensure positioned context */
+  position: relative;
   min-width: 300px;
-  z-index: 100; /* sit above nearby content if needed */
+  z-index: 5000;
 }
 
 .suggestions-list {
   position: absolute;
-  top: 100%; /* right below the input container */
+  top: 100%;
   left: 0;
   right: 0;
   margin: 4px 0 0;
