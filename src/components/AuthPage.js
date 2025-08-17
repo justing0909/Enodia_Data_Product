@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthProvider';
 import logo from '../assets/enodia_logo.png';
 import './AuthPage.css';
+import backgroundImage from '../assets/auth_background.jpg';
 
 export default function AuthPage() {
   const { signInWithCognito, signUpWithCognito } = useAuth();
@@ -26,12 +27,12 @@ export default function AuthPage() {
         <div className="auth-header">
           <img src={logo} alt="Enodia" className="auth-logo" />
           <h1 className="auth-title">
-            {isSignUp ? 'Create Account' : 'Sign In'}
+            {isSignUp ? 'Create Your Account' : 'Sign Into Your Account'}
           </h1>
           <p className="auth-subtitle">
             {isSignUp 
-              ? 'Create your account to get started.' 
-              : 'Sign in to your account.'
+              ? '' 
+              : ''
             }
           </p>
         </div>
@@ -41,7 +42,7 @@ export default function AuthPage() {
             onClick={handleCognitoAuth}
             className="auth-button primary"
           >
-            {isSignUp ? 'Continue to Sign Up' : 'Continue to Sign In'}
+            {isSignUp ? 'Get Started' : 'Continue'}
           </button>
 
           <div className="auth-divider">
@@ -65,14 +66,14 @@ export default function AuthPage() {
 
 
         {/* Footer content with terms & conditions */}
-        <div className="auth-footer">
+        {/* <div className="auth-footer">
           <p>
             By continuing, you agree to our{' '}
             <a href="/terms" className="auth-link">Terms of Service</a>{' '}
             and{' '}
             <a href="/privacy" className="auth-link">Privacy Policy</a>
           </p>
-        </div>
+        </div> */}
       </div>
     </div>
   );

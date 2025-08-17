@@ -1,11 +1,16 @@
 /* src/components/AuthPage.css */
 
 .auth-container {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);          /* TODO: Change background to image. */
+  background-image: 
+    linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)),
+    url('../assets/auth_background.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   padding: 20px;
 }
 
@@ -28,7 +33,7 @@
 }
 
 .auth-logo {
-  height: 48px;
+  height: 80px; /* Increased from 48px */
   margin-bottom: 24px;
 }
 
@@ -86,23 +91,23 @@
   position: relative;
   margin: 24px 0;
   text-align: center;
+  display: flex;
+  align-items: center;
 }
 
-.auth-divider::before {
+.auth-divider::before,
+.auth-divider::after {
   content: '';
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
+  flex: 1;
   height: 1px;
   background: var(--border);
 }
 
 .auth-divider span {
-  background: var(--bg);
   padding: 0 16px;
   color: var(--fg-muted);
   font-size: 0.9rem;
+  background: var(--bg);
 }
 
 .auth-toggle {
