@@ -1,9 +1,0 @@
-# Database Configuration
-DB_HOST=your-rds-endpoint.amazonaws.com
-DB_PORT=5432
-DB_NAME=your_database_name
-DB_USER=your_username
-DB_PASSWORD=your_password
-
-# Lambda API URL (optional - for notifications)
-LAMBDA_API_URL=https://your-api-gateway-url.amazonaws.com/prod/notify 
