@@ -461,7 +461,11 @@ function MainApp() {
       });
   }, []);
 
+  console.log('🗺️ App loaded, selectedLine:', selectedLine);
+
+
   const handleSelection = useCallback((coords, id = null, label = null) => {
+
     if (label !== null) {
       setSearch(label);
       skipProgrammaticRef.current = true;

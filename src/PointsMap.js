@@ -36,6 +36,28 @@ function MapViewSync({ highlightPos }) {
   return null;
 }
 
+// Component to handle map clicks for deselection
+function MapClickHandler({ onLineSelect, selectedLine }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const handleMapClick = (e) => {
+      // Only deselect if there's currently a selected line
+      if (selectedLine && onLineSelect) {
+        onLineSelect(null);
+      }
+    };
+
+    map.on('click', handleMapClick);
+
+    return () => {
+      map.off('click', handleMapClick);
+    };
+  }, [map, onLineSelect, selectedLine]);
+
+  return null;
+}
+
 export default function PointsMap({
   dark,
   highlightPos,
@@ -45,64 +67,181 @@ export default function PointsMap({
   onLineSelect,
 }) {
   const mapRef = useRef();
+  const currentPopupRef = useRef(null);
+  const layerRefsRef = useRef(new Map()); // Store references to all layers
 
-  // Style each infrastructure layer: roads green, rail pastel red, others from layer.color
+  // Fixed style function with proper selection logic
   const getLineStyle = (layer, feature) => {
     const baseColor = layer.color;
-    const isSelected =
-      selectedLine &&
-      feature.properties &&
-      selectedLine.properties &&
+    
+    // Check if this feature is the selected one
+    const isSelected = selectedLine && 
+      feature.properties && 
+      selectedLine.properties && 
       feature.properties.id === selectedLine.properties.id;
+    
     return {
-      color: isSelected ? '#d9a3ff' : baseColor,
+      color: isSelected ? '#d9a3ff' : baseColor, // Purple for selected, original color for others
       weight: isSelected ? 6 : 3,
       opacity: 1,
       dashArray: layer.key === 'road' ? null : null,
     };
   };
 
-  // Handle click on a line feature
+  // Handle click on a line feature with toggle functionality
   const onEachLine = (layerObj, layerDef) => (feature, layer) => {
+    
+    // Store layer reference for manual style updates
+    const featureId = feature.properties?.id;
+    if (featureId) {
+      layerRefsRef.current.set(featureId, { layer, layerDef });
+    }
+    
     layer.on({
-      click: () => {
-        if (onLineSelect) onLineSelect(feature);
-        layer.bindPopup(
-          `<div style="min-width:160px"><strong>${layerDef.displayName}</strong><br/>ID: ${feature.properties.id || 'n/a'}<br/>${Object.entries(feature.properties)
-            .filter(([k]) => k !== 'layerType')
-            .map(([k, v]) => `<div><small>${k}: ${v}</small></div>`)
-            .join('')}</div>`
-        ).openPopup();
-      },
-      mouseover: () => {
-        layer.setStyle({ weight: 5 });
-      },
-      mouseout: () => {
-        layer.setStyle(getLineStyle(layerDef, feature));
-      },
+      click: (e) => {
+        
+        // Prevent map click event from firing
+        L.DomEvent.stopPropagation(e);
+        
+        // Create proper popup content
+        const popupContent = `<div style="min-width:160px; font-size:14px;">
+          <strong style="color: #333;">${layerDef.displayName}</strong><br/>
+          <strong>ID:</strong> ${feature.properties.id || 'n/a'}<br/>
+          ${Object.entries(feature.properties)
+            .filter(([k]) => k !== 'layerType' && k !== 'id')
+            .map(([k, v]) => `<div style="margin-top: 4px;"><strong>${k}:</strong> ${v}</div>`)
+            .join('')}
+        </div>`;
+        
+        
+        // Close any existing popup first
+        if (currentPopupRef.current) {
+          currentPopupRef.current.closePopup();
+          currentPopupRef.current = null;
+        }
+        
+        try {
+          // Popup with options for better persistence
+          layer.bindPopup(popupContent, {
+            closeOnClick: false,
+            autoClose: false,
+            closeOnEscapeKey: true
+          }).openPopup();
+          currentPopupRef.current = layer;
+        } catch (error) {
+        }
+        
+        if (onLineSelect) {
+          // Handle selection immediately - no re-render, just manual style updates
+          const wasSelected = selectedLine && 
+            feature.properties?.id === selectedLine.properties?.id;
+          
+          if (wasSelected) {
+            onLineSelect(null);
+            // Close popup when deselecting
+            setTimeout(() => {
+              if (currentPopupRef.current) {
+                currentPopupRef.current.closePopup();
+                currentPopupRef.current = null;
+              }
+            }, 50);
+          } else {
+            onLineSelect(feature);
+          }
+        }
+      }
+      // NOTE: mouseover/mouseout handlers are now managed dynamically in useEffect
     });
   };
 
-  // Memoize GeoJSON layers to avoid re-renders
+  // Update styles manually when selection changes, without re-rendering
+  useEffect(() => {
+    
+    layerRefsRef.current.forEach(({ layer, layerDef }, featureId) => {
+      const isSelected = selectedLine && selectedLine.properties?.id === featureId;
+      
+      if (isSelected) {
+        layer.setStyle({
+          color: '#d9a3ff', // Purple for selected
+          weight: 6,
+          opacity: 1,
+        });
+        
+        // CRITICAL: Remove mouseout handler for selected lines to prevent color override
+        layer.off('mouseout');
+        
+        // Add mouseover handler back for selected lines (for consistency)
+        layer.off('mouseover');
+        layer.on('mouseover', () => {
+          // Selected lines don't need hover effects, keep purple
+          layer.setStyle({
+            color: '#d9a3ff',
+            weight: 6,
+            opacity: 1,
+          });
+        });
+        
+      } else {
+        layer.setStyle({
+          color: layerDef.color, // Original color
+          weight: 3,
+          opacity: 1,
+        });
+        
+        // Restore normal hover behavior for unselected lines
+        layer.off('mouseover');
+        layer.off('mouseout');
+        
+        layer.on('mouseover', () => {
+          layer.setStyle({ 
+            color: layerDef.color,
+            weight: 5,
+            opacity: 1
+          });
+        });
+        
+        layer.on('mouseout', () => {
+          layer.setStyle({
+            color: layerDef.color,
+            weight: 3,
+            opacity: 1
+          });
+        });
+      }
+    });
+  }, [selectedLine]);
+
+  // Use completely stable keys - no re-renders based on selection
   const renderedLayers = useMemo(() => {
+    
     return infrastructureLayers
       .filter(l => l.enabled && l.geojson && l.geojson.features && l.geojson.features.length)
-      .map(layer => (
-        <GeoJSON
-          key={layer.key}
-          data={layer.geojson}
-          pathOptions={feature => getLineStyle(layer, feature)}
-          onEachFeature={onEachLine(null, layer)}
-          style={feature => getLineStyle(layer, feature)}
-        />
-      ));
-  }, [infrastructureLayers, selectedLine]);
+      .map(layer => {
+        console.log(`🗺️ Creating GeoJSON layer for ${layer.key}`);
+        return (
+          <GeoJSON
+            key={`${layer.key}-stable`} // Completely stable key
+            data={layer.geojson}
+            style={feature => getLineStyle(layer, feature)}
+            onEachFeature={onEachLine(null, layer)}
+          />
+        );
+      });
+  }, [infrastructureLayers]); // Only re-render when layers themselves change
+
+  // Close popup when selection changes externally (like map click deselection)
+  useEffect(() => {
+    if (!selectedLine && currentPopupRef.current) {
+      currentPopupRef.current.closePopup();
+      currentPopupRef.current = null;
+    }
+  }, [selectedLine]);
+
+  // Remove the useEffect - let React handle the re-rendering
 
   // Selected site coordinates from sampleSites or passed in
-  // expecting selectedSiteId corresponds to a site with lat/lng in overlay data; if you have site list externally, you'd pass coords
   const selectedSitePosition = useMemo(() => {
     if (!selectedSiteId) return null;
-    // If you want to derive from a global dataset, that logic would go external and pass coords instead.
     return null;
   }, [selectedSiteId]);
 
@@ -124,6 +263,8 @@ export default function PointsMap({
       scrollWheelZoom={true}
     >
       <MapViewSync highlightPos={highlightPos} />
+      <MapClickHandler onLineSelect={onLineSelect} selectedLine={selectedLine} />
+      
       <TileLayer
         attribution="© OpenStreetMap contributors"
         url={
@@ -136,25 +277,7 @@ export default function PointsMap({
       {/* Render infrastructure line layers */}
       {renderedLayers}
 
-      {/* Highlight selected line again on top */}
-      {selectedLine && (
-        <GeoJSON
-          key="selected-line-overlay"
-          data={selectedLine}
-          style={{
-            color: '#d9a3ff',
-            weight: 6,
-            opacity: 1,
-          }}
-          onEachFeature={(feature, layer) => {
-            layer.bindPopup(
-              `<div style="min-width:160px"><strong>Selected Line</strong><br/>ID: ${feature.properties.id || 'n/a'}</div>`
-            );
-          }}
-        />
-      )}
-
-      {/* Selected site marker (if you pass actual coordinates instead of just ID, wire that here) */}
+      {/* Selected site marker */}
       {highlightPos && (
         <Marker position={highlightPos} icon={siteIcon}>
           <Popup>
