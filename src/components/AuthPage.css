@@ -11,7 +11,10 @@
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  background-attachment: fixed;
   padding: 20px;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .auth-card {
