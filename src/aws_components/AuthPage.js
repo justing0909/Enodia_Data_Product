@@ -3,10 +3,10 @@
 // It allows users to sign in or sign up, and displays a simple UI with branding.
 
 import React, { useState } from 'react';
-import { useAuth } from '../contexts/AuthProvider';
-import logo from '../assets/enodia_logo.png';
-import './AuthPage.css';
-import backgroundImage from '../assets/auth_background.jpg';
+import { useAuth } from './AuthProvider';
+import logo from '../img_assets/enodia_logo.png';
+import '../styles/AuthPage.css';
+import backgroundImage from '../img_assets/auth_background.jpg';
 
 export default function AuthPage() {
   const { signInWithCognito, signUpWithCognito } = useAuth();

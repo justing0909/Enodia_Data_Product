@@ -7,7 +7,7 @@
   justify-content: center;
   background-image: 
     linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)),
-    url('../assets/auth_background.jpg');
+    url('../img_assets/auth_background.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;

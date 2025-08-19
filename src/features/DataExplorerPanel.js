@@ -1,15 +1,17 @@
 // src/DataExplorerPanel.js
 import React, { useState, useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
-import sampleData from './data/sampleData.json';
+import sampleData from './points/sampleData.json';
 
-
+// data explorer panel component
 export default function DataExplorerPanel({
   onRowClick,
   rows: propRows,
   selectedId,
   clearSelection,
 }) {
+
+  // state to manage the original rows, filter, sort, and pagination
   const [originalRows, setOriginalRows] = useState([]);
   const [filterField, setFilterField] = useState('');
   const [filterOp, setFilterOp] = useState('equals');
@@ -19,14 +21,16 @@ export default function DataExplorerPanel({
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
+  // effect to initialize original rows from props or sample data
   useEffect(() => {
-    if (propRows && Array.isArray(propRows)) {
+    if (propRows && Array.isArray(propRows)) {      // if propRows is provided, use it
       setOriginalRows(propRows);
     } else {
-      setOriginalRows(sampleData);
+      setOriginalRows(sampleData);                  // fallback to sample data if no rows provided
     }
   }, [propRows]);
 
+  // initial data table structure
   const columns = useMemo(
     () => [
       { label: 'ID', key: 'id' },
@@ -37,10 +41,16 @@ export default function DataExplorerPanel({
     []
   );
 
+  // function to apply filter based on selected field, operation, and value
   const applyFilter = r => {
+    // default filter state
     if (!filterField || filterValue === '') return true;
+
+    // convert field value to lowercase for case-insensitive comparison
     const v = String(r[filterField]).toLowerCase();
     const q = filterValue.toLowerCase();
+    
+    // filter operations
     switch (filterOp) {
       case 'equals':
         return v === q;
@@ -55,8 +65,11 @@ export default function DataExplorerPanel({
     }
   };
 
+  // memoized processed rows based on filter and sort criteria
   const processedRows = useMemo(() => {
     let rows = originalRows.filter(applyFilter);
+
+    // apply sorting if a column is selected
     if (sortCol != null) {
       const key = columns[sortCol].key;
       rows = [...rows].sort((a, b) => {
@@ -73,16 +86,22 @@ export default function DataExplorerPanel({
     return rows;
   }, [originalRows, filterField, filterOp, filterValue, sortCol, sortDir, columns]);
 
+  // pagination logic
   const totalPages = Math.ceil(processedRows.length / pageSize);
   const paginated = processedRows.slice((page - 1) * pageSize, page * pageSize);
 
   return (
+    // Data Explorer panel UI
     <div className="panel" style={{ width: 'fit-content' }}>
       <h2 className="panel-title">Data Explorer</h2>
       <div style={{ marginBottom: '8px' }}>
+
+        {/* "clear" button */}
         <button className="clear-button" onClick={clearSelection} disabled={!selectedId}>
           Clear Selection
         </button>
+
+        {/* "de-sort" button */}
         <button
           className="desort-button"
           onClick={() => setSortCol(null)}
@@ -92,6 +111,7 @@ export default function DataExplorerPanel({
         </button>
       </div>
 
+      {/* Filter and sort controls */}
       <div className="filter-bar">
         <select
           value={filterField}
@@ -100,6 +120,8 @@ export default function DataExplorerPanel({
             setPage(1);
           }}
         >
+
+          {/* Dropdown for selecting filter field */}
           <option value="">-- Field --</option>
           {columns.map(c => (
             <option key={c.key} value={c.key}>
@@ -107,12 +129,16 @@ export default function DataExplorerPanel({
             </option>
           ))}
         </select>
+
+        {/* SQL Operation dropdown (default "Equals") */}
         <select value={filterOp} onChange={e => setFilterOp(e.target.value)}>
           <option value="equals">Equals</option>
           <option value="contains">Contains</option>
           <option value="gt">Greater Than</option>
           <option value="lt">Less Than</option>
         </select>
+
+        {/* Input for filter value */}
         <input
           type="text"
           placeholder="Value"
@@ -122,6 +148,7 @@ export default function DataExplorerPanel({
         />
       </div>
 
+      {/* Data table */}
       <div className="table-container">
         <table>
           <thead>
@@ -145,6 +172,8 @@ export default function DataExplorerPanel({
               ))}
             </tr>
           </thead>
+
+          {/* Highlight selected row from table on map */}
           <tbody>
             {paginated.map(r => (
               <tr
@@ -163,13 +192,20 @@ export default function DataExplorerPanel({
         </table>
       </div>
 
+      {/* Pagination controls */}
       <div className="pagination">
+
+        {/* "previous" page button */}
         <button disabled={page === 1} onClick={() => setPage(p => p - 1)}>
           Prev
         </button>
+
+        {/* Page __ of __ */}
         <span>
           Page {page} of {totalPages}
         </span>
+
+        {/* "next" page button */}
         <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
           Next
         </button>
@@ -178,6 +214,7 @@ export default function DataExplorerPanel({
   );
 }
 
+// PropTypes for DataExplorerPanel
 DataExplorerPanel.propTypes = {
   onRowClick: PropTypes.func.isRequired,
   rows: PropTypes.array,

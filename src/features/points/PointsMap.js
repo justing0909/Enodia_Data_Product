@@ -1,31 +1,33 @@
 // src/PointsMap.js
 import React, { useEffect, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, GeoJSON, useMap, CircleMarker } from 'react-leaflet';
-import markerIconUrl from './assets/marker.png';
+import markerIconUrl from '../../img_assets/marker.png';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-// Custom marker icon (expects marker.png in /public or adjust path)
+// custom marker icon stylization
 const siteIcon = new L.Icon({
-  iconUrl: markerIconUrl,
+  iconUrl: markerIconUrl,         // from assets folder
   iconSize: [32, 32],
   iconAnchor: [16, 32],
   popupAnchor: [0, -28],
   shadowUrl: null,
 });
 
-const DEFAULT_CENTER = [44.3210, -69.7652]; // Center on Augusta / Kennebec County
+// center on Augusta / Kennebec County
+const DEFAULT_CENTER = [44.3210, -69.7652]; 
 const DEFAULT_ZOOM = 11;
 
+// component to sync map view with highlight position. this will pan to higlighted position if provided
 function MapViewSync({ highlightPos }) {
   const map = useMap();
   const initialized = useRef(false);
 
-  // If highlightPos is provided and map already exists, pan to it but keep zoom.
+  // if highlightPos is provided and map already exists, pan to it but keep zoom.
   useEffect(() => {
     if (highlightPos) {
       if (!initialized.current) {
-        map.setView(highlightPos, map.getZoom()); // first time selection
+        map.setView(highlightPos, map.getZoom()); // zoom from first selection
         initialized.current = true;
       } else {
         map.panTo(highlightPos, { animate: true });
@@ -36,20 +38,24 @@ function MapViewSync({ highlightPos }) {
   return null;
 }
 
-// Component to handle map clicks for deselection
+// component to handle map clicks for deselection
 function MapClickHandler({ onLineSelect, selectedLine }) {
   const map = useMap();
 
+  // handle map click to deselect line if one is selected
   useEffect(() => {
     const handleMapClick = (e) => {
-      // Only deselect if there's currently a selected line
+      // only deselect if there's currently a selected line                 // TODO: also apply this when popup is X'd out
       if (selectedLine && onLineSelect) {
         onLineSelect(null);
       }
     };
 
+    // attach click handler to map
     map.on('click', handleMapClick);
 
+    // cleanup function to remove the click handler
+    // this prevents memory leaks and ensures the handler is removed when component unmounts
     return () => {
       map.off('click', handleMapClick);
     };
@@ -58,6 +64,7 @@ function MapClickHandler({ onLineSelect, selectedLine }) {
   return null;
 }
 
+// main PointsMap component (renders the Leaflet map)
 export default function PointsMap({
   dark,
   highlightPos,
@@ -66,44 +73,48 @@ export default function PointsMap({
   selectedLine,
   onLineSelect,
 }) {
+
+  // refs to store map instance and current popup
   const mapRef = useRef();
   const currentPopupRef = useRef(null);
-  const layerRefsRef = useRef(new Map()); // Store references to all layers
+  const layerRefsRef = useRef(new Map()); // store references to all layers
 
-  // Fixed style function with proper selection logic
+  // fixed style function with proper selection logic
   const getLineStyle = (layer, feature) => {
     const baseColor = layer.color;
     
-    // Check if this feature is the selected one
+    // check if this feature is the selected one
     const isSelected = selectedLine && 
       feature.properties && 
       selectedLine.properties && 
       feature.properties.id === selectedLine.properties.id;
     
+    // style of the line based on selection state
     return {
-      color: isSelected ? '#d9a3ff' : baseColor, // Purple for selected, original color for others
+      color: isSelected ? '#d9a3ff' : baseColor,
       weight: isSelected ? 6 : 3,
       opacity: 1,
       dashArray: layer.key === 'road' ? null : null,
     };
   };
 
-  // Handle click on a line feature with toggle functionality
+  // handle click on a line feature with toggle functionality
   const onEachLine = (layerObj, layerDef) => (feature, layer) => {
     
-    // Store layer reference for manual style updates
+    // store layer reference for manual style updates
     const featureId = feature.properties?.id;
     if (featureId) {
       layerRefsRef.current.set(featureId, { layer, layerDef });
     }
     
+    // bind click event to toggle selection
     layer.on({
       click: (e) => {
         
-        // Prevent map click event from firing
+        // prevent map click event from firing
         L.DomEvent.stopPropagation(e);
         
-        // Create proper popup content
+        // create proper popup content (and style)
         const popupContent = `<div style="min-width:160px; font-size:14px;">
           <strong style="color: #333;">${layerDef.displayName}</strong><br/>
           <strong>ID:</strong> ${feature.properties.id || 'n/a'}<br/>
@@ -114,14 +125,14 @@ export default function PointsMap({
         </div>`;
         
         
-        // Close any existing popup first
+        // close any existing popup first
         if (currentPopupRef.current) {
           currentPopupRef.current.closePopup();
           currentPopupRef.current = null;
         }
         
         try {
-          // Popup with options for better persistence
+          // popup with options for better persistence
           layer.bindPopup(popupContent, {
             closeOnClick: false,
             autoClose: false,
@@ -132,48 +143,49 @@ export default function PointsMap({
         }
         
         if (onLineSelect) {
-          // Handle selection immediately - no re-render, just manual style updates
+          // handle selection immediately - no re-render, just manual style updates
           const wasSelected = selectedLine && 
             feature.properties?.id === selectedLine.properties?.id;
           
+          // toggle selection state
           if (wasSelected) {
+
+            // deselect this line...
             onLineSelect(null);
-            // Close popup when deselecting
+            // ...and close popup when deselecting
             setTimeout(() => {
               if (currentPopupRef.current) {
                 currentPopupRef.current.closePopup();
                 currentPopupRef.current = null;
               }
             }, 50);
-          } else {
+
+          } else { // select this line
             onLineSelect(feature);
           }
         }
       }
-      // NOTE: mouseover/mouseout handlers are now managed dynamically in useEffect
     });
   };
 
-  // Update styles manually when selection changes, without re-rendering
+  // update styles manually when selection changes, without re-rendering
   useEffect(() => {
-    
     layerRefsRef.current.forEach(({ layer, layerDef }, featureId) => {
       const isSelected = selectedLine && selectedLine.properties?.id === featureId;
       
+      // apply styles based on selection state
       if (isSelected) {
         layer.setStyle({
-          color: '#d9a3ff', // Purple for selected
+          color: '#d9a3ff',
           weight: 6,
           opacity: 1,
         });
         
-        // CRITICAL: Remove mouseout handler for selected lines to prevent color override
-        layer.off('mouseout');
-        
-        // Add mouseover handler back for selected lines (for consistency)
+        // add mouseover handler back for selected lines (for consistency)
         layer.off('mouseover');
         layer.on('mouseover', () => {
-          // Selected lines don't need hover effects, keep purple
+
+          // selected lines don't need hover effects, keep purple
           layer.setStyle({
             color: '#d9a3ff',
             weight: 6,
@@ -181,25 +193,28 @@ export default function PointsMap({
           });
         });
         
-      } else {
+        // reset to original style for unselected lines //
+      } else { 
         layer.setStyle({
-          color: layerDef.color, // Original color
+          color: layerDef.color, // original color
           weight: 3,
           opacity: 1,
         });
-        
-        // Restore normal hover behavior for unselected lines
+
+        // restore normal hover behavior for unselected lines
         layer.off('mouseover');
         layer.off('mouseout');
-        
+
+        // bolden line when cursor hovers over it
         layer.on('mouseover', () => {
           layer.setStyle({ 
             color: layerDef.color,
-            weight: 5,
+            weight: 5,              // bold
             opacity: 1
           });
         });
         
+        // reset style when cursor leaves
         layer.on('mouseout', () => {
           layer.setStyle({
             color: layerDef.color,
@@ -211,25 +226,26 @@ export default function PointsMap({
     });
   }, [selectedLine]);
 
-  // Use completely stable keys - no re-renders based on selection
+
+  // use completely stable keys - no re-renders based on selection
   const renderedLayers = useMemo(() => {
     
+    // filter out layers that are not enabled or have no features
     return infrastructureLayers
       .filter(l => l.enabled && l.geojson && l.geojson.features && l.geojson.features.length)
       .map(layer => {
-        console.log(`🗺️ Creating GeoJSON layer for ${layer.key}`);
         return (
           <GeoJSON
-            key={`${layer.key}-stable`} // Completely stable key
+            key={`${layer.key}-stable`} // completely stable key
             data={layer.geojson}
             style={feature => getLineStyle(layer, feature)}
             onEachFeature={onEachLine(null, layer)}
           />
         );
       });
-  }, [infrastructureLayers]); // Only re-render when layers themselves change
+  }, [infrastructureLayers]); // only re-render when layers themselves change
 
-  // Close popup when selection changes externally (like map click deselection)
+  // close popup when selection changes externally (like map click deselection)
   useEffect(() => {
     if (!selectedLine && currentPopupRef.current) {
       currentPopupRef.current.closePopup();
@@ -237,15 +253,13 @@ export default function PointsMap({
     }
   }, [selectedLine]);
 
-  // Remove the useEffect - let React handle the re-rendering
+  // selected site coordinates from sampleSites or passed in
+  // const selectedSitePosition = useMemo(() => {
+  //   if (!selectedSiteId) return null;
+  //   return null;
+  // }, [selectedSiteId]); 
 
-  // Selected site coordinates from sampleSites or passed in
-  const selectedSitePosition = useMemo(() => {
-    if (!selectedSiteId) return null;
-    return null;
-  }, [selectedSiteId]);
-
-  // Resize observer or similar could be added to invalidate map size if parent dims change
+  // resize observer or similar could be added to invalidate map size if parent dimensions change
   useEffect(() => {
     if (mapRef.current) {
       mapRef.current.invalidateSize?.();
@@ -253,6 +267,7 @@ export default function PointsMap({
   }, []);
 
   return (
+    // map at start up
     <MapContainer
       center={DEFAULT_CENTER}
       zoom={DEFAULT_ZOOM}
@@ -260,11 +275,14 @@ export default function PointsMap({
       whenCreated={mapInstance => {
         mapRef.current = mapInstance;
       }}
-      scrollWheelZoom={true}
+      scrollWheelZoom={true}              // zoom in and out tool
     >
+
+      {/* sync map view with highlight position */}
       <MapViewSync highlightPos={highlightPos} />
       <MapClickHandler onLineSelect={onLineSelect} selectedLine={selectedLine} />
       
+      {/* tile layer for the map background */}
       <TileLayer
         attribution="© OpenStreetMap contributors"
         url={
@@ -274,10 +292,10 @@ export default function PointsMap({
         }
       />
 
-      {/* Render infrastructure line layers */}
+      {/* render infrastructure line layers */}
       {renderedLayers}
 
-      {/* Selected site marker */}
+      {/* popup for point data */}                              {/* //TODO: update point popups with more db data // */}
       {highlightPos && (
         <Marker position={highlightPos} icon={siteIcon}>
           <Popup>

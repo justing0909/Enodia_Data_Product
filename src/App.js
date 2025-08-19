@@ -1,25 +1,41 @@
-// src/App.js
+// ====== Imports ====== //
+// Main Imports
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import './App.css';
-import PointsMap from './PointsMap';
-import DataExplorerPanel from './DataExplorerPanel';
-import SimulationPanel from './SimulationPanel';
-import InfrastructureExplorer from './InfrastructureExplorer';
-import ProtectedRoute from './components/ProtectedRoute';
-import { AuthProvider, useAuth } from './contexts/AuthProvider';
-import { Sun, Moon, Search, Droplet, Wind, FireExtinguisher, Snowflake, Cpu, LogOut } from 'lucide-react';
-import logo from './assets/enodia_logo.png';
-import sampleSites from './data/sampleData.json';
-import { fetchOsmInfrastructure } from './utils/fetchOsmLines';
+import './styles/App.css';
+import PointsMap from './features/points/PointsMap';
 
-// Tab identifiers (avoid magic strings)
+// Style Imports
+import logo from './img_assets/enodia_logo.png';
+
+// Data Imports
+import sampleSites from './features/points/sampleData.json';
+import { fetchOsmInfrastructure } from './features/lines/fetchOsmLines'; 
+
+// Authentication Imports
+import ProtectedRoute from './aws_components/ProtectedRoute';
+import { AuthProvider, useAuth } from './aws_components/AuthProvider';
+
+// Simulation Imports
+import { Sun, Moon, Search, Droplet, Wind, FireExtinguisher, Snowflake, Cpu, LogOut } from 'lucide-react';
+import SimulationPanel from './features/simulation/SimulationPanel';
+
+// Data Explorer & Subtab Imports
+import DataExplorerPanel from './features/DataExplorerPanel';
+import InfrastructureExplorer from './features/lines/InfrastructureExplorer';
+import DataSubmitTab from './aws_components/DataSubmitTab';
+
+
+// ====== Tabs and Subtabs ====== //
 const TOP_TABS = ['Data Explorer', 'Simulation'];
 const SUBTABS = {
   SITES: 'Sites',
   INFRA: 'Infrastructure',
+  SUBMIT: 'Submit Data',
 };
 
-// Disaster definitions (icon-only)
+
+// ====== Disaster Types ====== //
+// define disaster types with icons
 const DISASTERS = [
   { key: 'flood', label: 'Flood', Icon: Droplet },
   { key: 'hurricane', label: 'Hurricane', Icon: Wind },
@@ -28,6 +44,7 @@ const DISASTERS = [
   { key: 'cyber', label: 'Cyberattack', Icon: Cpu },
 ];
 
+// default simulation parameters for each disaster type
 function getDefaultParams(disaster) {
   switch (disaster) {
     case 'flood':
@@ -45,7 +62,9 @@ function getDefaultParams(disaster) {
   }
 }
 
-// Hook: dark mode with persistence
+
+// ====== Dark Mode Hook ====== //
+// hook: dark mode with persistence
 function useDarkMode() {
   const [dark, setDark] = useState(() => {
     const stored = localStorage.getItem('darkMode');
@@ -57,6 +76,7 @@ function useDarkMode() {
     localStorage.setItem('darkMode', dark);
   }, [dark]);
 
+  // listen for system dark mode changes
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = e => {
@@ -82,7 +102,7 @@ function useDarkMode() {
   return [dark, setDark];
 }
 
-// Hook: debounce value
+// hook: debounce value
 function useDebouncedValue(value, delay = 300) {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -92,6 +112,8 @@ function useDebouncedValue(value, delay = 300) {
   return debounced;
 }
 
+// ====== Search Bar Autocomplete ====== //
+// autocomplete component for searching locations
 function Autocomplete({
   search,
   setSearch,
@@ -107,6 +129,7 @@ function Autocomplete({
   const debouncedSearch = useDebouncedValue(search, 300);
   const abortRef = useRef(null);
 
+  // fetch suggestions from Nominatim API
   useEffect(() => {
     if (debouncedSearch.length < 3) {
       setSuggestions([]);
@@ -115,6 +138,7 @@ function Autocomplete({
       return;
     }
 
+    // abort previous fetch if it exists
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -141,6 +165,7 @@ function Autocomplete({
     return () => controller.abort();
   }, [debouncedSearch]);
 
+  // handle keyboard navigation within suggestions
   const handleKeyDown = e => {
     if (!isOpen) return;
     if (e.key === 'ArrowDown') {
@@ -160,6 +185,7 @@ function Autocomplete({
     }
   };
 
+  // scroll highlighted suggestion into view
   useEffect(() => {
     if (highlightedIdx >= 0 && listRef.current) {
       const el = listRef.current.querySelector(`[data-idx="${highlightedIdx}"]`);
@@ -167,6 +193,7 @@ function Autocomplete({
     }
   }, [highlightedIdx]);
 
+  // close suggestions when clicking outside
   const handleClickOutside = useCallback(
     e => {
       if (
@@ -181,16 +208,19 @@ function Autocomplete({
     [setIsOpen]
   );
 
+  // add event listener for clicks outside the component
   useEffect(() => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [handleClickOutside]);
 
+  // select a suggestion
   const select = suggestion => {
     onSelectSuggestion(suggestion);
     setIsOpen(false);
   };
 
+  // render the autocomplete component
   return (
     <div className="autocomplete-wrapper">
       <div className="search-bar">
@@ -234,9 +264,12 @@ function Autocomplete({
               </li>
             ))
           ) : (
-            <li className="suggestion-item no-results" aria-disabled="true">
+
+            // no results message, when there's no suggested cities
+            <li className="suggestion-item no-results">
               No results
             </li>
+
           )}
         </ul>
       )}
@@ -244,6 +277,8 @@ function Autocomplete({
   );
 }
 
+// ====== Application Tabs ====== //
+// renders the header, tabs, and content
 function ExplorerSubtabs({
   selectedId,
   handleSiteSelect,
@@ -253,6 +288,8 @@ function ExplorerSubtabs({
   sampleSites,
   onToggleLayer,
 }) {
+
+  // state for inner tab selection
   const [innerTab, setInnerTab] = useState(SUBTABS.SITES);
   const selectedSite = useMemo(
     () => (selectedId != null ? sampleSites.find(s => s.id === selectedId) : null),
@@ -262,10 +299,14 @@ function ExplorerSubtabs({
   const switchToSites = useCallback(() => setInnerTab(SUBTABS.SITES), []);
   const switchToInfra = useCallback(() => setInnerTab(SUBTABS.INFRA), []);
 
+  // render the main explorer with sub-tabs
   return (
     <div className="data-explorer-with-subtabs">
       <div className="folder-tabs">
+        { /* render buttons for the sub-tabs of:
+          sites, infrastructure, and data submission */}
         <button
+          // on click, switch to sites tab
           className={`folder-tab ${innerTab === SUBTABS.SITES ? 'active' : ''}`}
           onClick={switchToSites}
           aria-selected={innerTab === SUBTABS.SITES}
@@ -274,6 +315,7 @@ function ExplorerSubtabs({
           Sites
         </button>
         <button
+          // on click, switch to infrastructure tab
           className={`folder-tab ${
             innerTab === SUBTABS.INFRA ? 'active' : ''
           }`}
@@ -283,8 +325,18 @@ function ExplorerSubtabs({
         >
           Infrastructure Lines
         </button>
+        <button
+          // on click, switch to data submission tab
+          className={`folder-tab ${innerTab === SUBTABS.SUBMIT ? 'active' : ''}`}
+          onClick={() => setInnerTab(SUBTABS.SUBMIT)}
+          aria-selected={innerTab === SUBTABS.SUBMIT}
+          role="tab"
+        >
+          Submit Data
+        </button>
       </div>
       <div className="folder-content">
+        { /* render the selected inner tab content based on the current state */}
         {innerTab === SUBTABS.SITES && (
           <DataExplorerPanel
             onRowClick={handleSiteSelect}
@@ -292,6 +344,8 @@ function ExplorerSubtabs({
             clearSelection={() => handleSelection(null, null)}
           />
         )}
+
+        {/* render the infrastructure explorer with layers and selected site */}
         {innerTab === SUBTABS.INFRA && (
           <InfrastructureExplorer
             infrastructureLayers={infrastructureLayers}
@@ -300,19 +354,26 @@ function ExplorerSubtabs({
             selectedSite={selectedSite}
           />
         )}
+
+        {/* render the data submission tab */}
+        {innerTab === SUBTABS.SUBMIT && (
+          <DataSubmitTab />
+        )}
       </div>
     </div>
   );
 }
 
-// User menu component
+// ====== User Menu / Account Button ====== //
 function UserMenu() {
   const { user, signOut } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
+  // toggle user menu open/close state (the "blue U" and sign out dropdown)
   return (
     <div className="user-menu" style={{ position: 'relative' }}>
       <button
+        // button to toggle user menu
         className="user-button"
         onClick={() => setIsOpen(!isOpen)}
         style={{
@@ -327,6 +388,8 @@ function UserMenu() {
           gap: '8px',
         }}
       >
+
+        {/* display user initials or email */}
         <div
           style={{
             width: '32px',
@@ -341,13 +404,20 @@ function UserMenu() {
             fontWeight: '600',
           }}
         >
-          {user?.email?.[0]?.toUpperCase() || 'U'}
+          {/* //! Update so it shows the first letter of the user's email 
+          */}
+          {user?.email?.[0]?.toUpperCase() || 'U'}        {/* The "U" in the logo */}
         </div>
+
+        {/* display user email (//! currently not displayed) 
+        */}
         <span>{user?.email}</span>
       </button>
       
       {isOpen && (
         <div
+
+          // style of dropdown menu for user actions
           style={{
             position: 'absolute',
             top: '100%',
@@ -362,10 +432,14 @@ function UserMenu() {
           }}
         >
           <button
+
+            // button to sign out
             onClick={() => {
               signOut();
               setIsOpen(false);
             }}
+
+            // style of sign-out button
             style={{
               width: '100%',
               padding: '12px 16px',
@@ -388,6 +462,8 @@ function UserMenu() {
   );
 }
 
+
+// ====== Infrastructure Layers Subtab ====== //
 function MainApp() {
   const { handleAuthCallback } = useAuth();
   const [tab, setTab] = useState(TOP_TABS[0]);
@@ -398,30 +474,34 @@ function MainApp() {
   const [selectedLine, setSelectedLine] = useState(null);
   const skipProgrammaticRef = useRef(false);
 
-  // Disaster + simulation state
+  // disaster & simulation state
   const [selectedDisaster, setSelectedDisaster] = useState('flood');
   const [simulationParams, setSimulationParams] = useState(() =>
-    getDefaultParams('flood')
+    getDefaultParams('flood')           // default state is flood
   );
 
+  // initial state of infrastucture lines
   const [infrastructureLayers, setInfrastructureLayers] = useState([
     {
+      // electricity layer visualization and metadata - in I.L. panel
       key: 'electricity',
       displayName: 'Electricity',
       color: '#f6c23e',
       geojson: { type: 'FeatureCollection', features: [] },
-      metadata: { criticality: 'high' },
+      metadata: { source: 'OSM power' },
       enabled: true,
     },
     {
+      // water layer visualization and metadata - in I.L. panel
       key: 'water',
       displayName: 'Water',
       color: '#36b9cc',
       geojson: { type: 'FeatureCollection', features: [] },
-      metadata: { criticality: 'medium' },
+      metadata: { source: 'OSM' },
       enabled: false,
     },
     {
+      // roads layer visualization and metadata - in I.L. panel
       key: 'road',
       displayName: 'Roads',
       color: '#38a169',
@@ -430,6 +510,7 @@ function MainApp() {
       enabled: false,
     },
     {
+      // rail layer visualization and metadata - in I.L. panel
       key: 'rail',
       displayName: 'Rail',
       color: '#ff9999',
@@ -439,20 +520,20 @@ function MainApp() {
     },
   ]);
 
-  // Auth callback is now handled in AuthProvider's checkAuthState
-  // No need for duplicate handling here
-
-  // Load OSM infrastructure once on mount
+  // load osm infrastructure once on mount
   useEffect(() => {
     fetchOsmInfrastructure()
       .then(result => {
         setInfrastructureLayers(prev =>
           prev.map(layer => {
+
+            // update each layer's geojson with the fetched data
             if (layer.key === 'road') return { ...layer, geojson: result.road };
             if (layer.key === 'rail') return { ...layer, geojson: result.rail };
             if (layer.key === 'electricity') return { ...layer, geojson: result.electricity };
             if (layer.key === 'water') return { ...layer, geojson: result.water };
             return layer;
+
           })
         );
       })
@@ -461,11 +542,10 @@ function MainApp() {
       });
   }, []);
 
-  console.log('🗺️ App loaded, selectedLine:', selectedLine);
-
-
+  // this function is used to set the selected position and ID
   const handleSelection = useCallback((coords, id = null, label = null) => {
 
+    // if skipProgrammaticRef is true, do not update search
     if (label !== null) {
       setSearch(label);
       skipProgrammaticRef.current = true;
@@ -475,22 +555,27 @@ function MainApp() {
     setSelectedLine(null);
   }, []);
 
+  // handle site selection from the data explorer
   const handleSiteSelect = useCallback((coords, id) => {
     handleSelection(coords, id);
   }, [handleSelection]);
 
+  // handle line selection from the infrastructure explorer
   const handleLineSelect = useCallback(feature => {
     setSelectedLine(feature);
   }, []);
 
+  // toggle infrastructure layer visibility
   const toggleLayer = useCallback(key => {
     setInfrastructureLayers(prev =>
       prev.map(l => (l.key === key ? { ...l, enabled: !l.enabled } : l))
     );
   }, []);
-
+  
+  // handle top tab click to switch between Data Explorer and Simulation
   const handleTopTabClick = useCallback(t => setTab(t), []);
 
+  // handle autocomplete suggestion selection
   const onSelectSuggestion = useCallback(
     p => {
       if (p) {
@@ -500,16 +585,21 @@ function MainApp() {
     [handleSelection]
   );
 
-  // Handle disaster change
+  // handle disaster change
   const handleDisasterClick = useCallback(d => {
     setSelectedDisaster(d);
     setSimulationParams(getDefaultParams(d));
   }, []);
 
+  // ====== Header JS ====== //
   return (
     <div className={`app${dark ? ' dark' : ''}`}>
       <header className="header">
+
+        {/* Enodia logo in the header */}
         <img src={logo} alt="Enodia logo" className="logo" />
+
+        {/* search bar in the header */}
         <Autocomplete
           search={search}
           setSearch={value => {
@@ -517,9 +607,10 @@ function MainApp() {
             skipProgrammaticRef.current = false;
           }}
           onSelectSuggestion={onSelectSuggestion}
-          placeholder="Search city..."
+          placeholder="Search city..."                // "Search city..." placeholder text in search bar
         />
 
+        {/* tabs for data explorer and simulation */}
         <div className="tabs" role="tablist">
           {TOP_TABS.map(t => (
             <button
@@ -533,8 +624,12 @@ function MainApp() {
             </button>
           ))}
         </div>
+        {/* user menu in the header */}
+        <UserMenu />
 
-        {/* Disaster selector only when simulation tab is active */}
+
+        {/* ====== Disaster Selector ====== */}
+        {/* disaster selector only when simulation tab is active */}
         {tab === 'Simulation' && (
           <div className="disaster-selector" style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
             {DISASTERS.map(d => {
@@ -543,7 +638,7 @@ function MainApp() {
                 <button
                   key={d.key}
                   className={`folder-tab ${selectedDisaster === d.key ? 'active' : ''}`}
-                  onClick={() => handleDisasterClick(d.key)}
+                  onClick={() => handleDisasterClick(d.key)}            // on click, set the selected disaster
                   aria-pressed={selectedDisaster === d.key}
                   title={d.label}
                   style={{ padding: '8px', minWidth: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -555,17 +650,21 @@ function MainApp() {
           </div>
         )}
 
-        <UserMenu />
-
+        
+        {/* ====== Dark Mode ====== */}
+        {/* dark mode toggle button */}
         <button
           className="toggle-button"
           onClick={() => setDark(d => !d)}
           aria-label="Toggle dark mode"
         >
+
+          {/* dark mode icons */}
           {dark ? <Sun size={20} /> : <Moon size={20} />}
         </button>
       </header>
 
+      {/* ====== Map ====== */}
       <div className="main-content">
         <div className="map-container">
           <PointsMap
@@ -577,6 +676,9 @@ function MainApp() {
             onLineSelect={handleLineSelect}
           />
         </div>
+
+
+        {/* ====== Data Explorer Sidebar ====== */}
         <aside className="sidebar">
           {tab === 'Data Explorer' ? (
             <div className="explorer-wrapper">
@@ -591,6 +693,9 @@ function MainApp() {
               />
             </div>
           ) : (
+
+
+            // ====== Simulation Panel Sidebar ====== //
             <SimulationPanel
               selectedDisaster={selectedDisaster}
               simulationParams={simulationParams}
@@ -604,6 +709,8 @@ function MainApp() {
   );
 }
 
+
+// authenticate and run main app
 export default function App() {
   return (
     <AuthProvider>

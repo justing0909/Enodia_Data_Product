@@ -3,6 +3,7 @@ import React, { useMemo } from 'react';
 import PropTypes from 'prop-types';
 import * as turf from '@turf/turf';
 
+// InfrastructureExplorer component to display and manage infrastructure layers
 export default function InfrastructureExplorer({
   infrastructureLayers,
   onToggleLayer,
@@ -10,8 +11,10 @@ export default function InfrastructureExplorer({
   proximityThresholdMeters = 500,
   selectedSite,
 }) {
+  // ensure infrastructureLayers is an array
   const selectedSitePt = selectedSite ? turf.point([selectedSite.lng, selectedSite.lat]) : null;
 
+  // calculate related lines for the selected site (helps with dependencies between networks / betweenness centrality)
   const relatedLinesForSite = useMemo(() => {
     if (!selectedSitePt) return {};
     const related = {};
@@ -26,24 +29,34 @@ export default function InfrastructureExplorer({
     return related;
   }, [selectedSitePt, infrastructureLayers, proximityThresholdMeters]);
 
+
+  // render the infrastructure lines subtab with toggles and metadata
   return (
     <div className="infrastructure-explorer">
-      <h3>Infrastructure Lines</h3>
+      <h3>Infrastructure Lines</h3>                             {/* Infrastructure Lines Header for subtab */}
       <div className="infra-layers-list">
         {infrastructureLayers.map(layer => (
+
+          // each layer is a card with toggle and metadata
           <div key={layer.key} className="layer-card">
+
+            {/* layer header: colored dot, display name */}
             <div className="layer-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div className="legend-dot" style={{ background: layer.color }} aria-label={layer.displayName} />
                 <span>{layer.displayName}</span>
               </div>
+
+              {/* Toggle switch for enabling/disabling layer */}
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <label
                   className="switch"
                   aria-label={`Toggle ${layer.displayName}`}
                   style={{ cursor: 'pointer' }}
-                  onClick={(e) => e.stopPropagation?.()} // prevents row click if the whole row is clickable
+                  onClick={(e) => e.stopPropagation?.()}
                 >
+
+                  {/* Toggle switch input */}
                   <input
                     type="checkbox"
                     checked={!!layer.enabled}
@@ -51,22 +64,26 @@ export default function InfrastructureExplorer({
                   />
                   <span className="slider" />
                 </label>
-                <button
+                {/* //! this button is for future expansion, currently does nothing
+                    <button
                   onClick={() => {}}
                   aria-label={`Expand metadata for ${layer.displayName}`}
                   style={{ background: 'none', border: 'none', cursor: 'pointer' }}
                 >
                   ▸
-                </button>
+                </button> */}
+                </div>
+              </div>
+
+            {/* currently "source" info, otherwise the highlighted metadata */}
+            <div className="metadata">
+              <div>
+                  <strong>source:</strong> {String(layer.metadata?.source || 'OpenStreetMap or other')}
               </div>
             </div>
-            <div className="metadata">
-              {Object.entries(layer.metadata || {}).map(([k, v]) => (
-                <div key={k}>
-                  <strong>{k}:</strong> {String(v)}
-                </div>
-              ))}
-            </div>
+
+            {/* If a site is selected, show related segments.
+            This is by proximity, not actually connected as of now */}
             {selectedSite && relatedLinesForSite[layer.key] && (
               <div className="related-summary">
                 Nearby related segments: {relatedLinesForSite[layer.key].length}

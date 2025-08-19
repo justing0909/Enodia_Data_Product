@@ -1,7 +1,7 @@
 // src/index.js
 import React from 'react';
 import { createRoot } from 'react-dom/client';       // <-- named import!
-import './index.css';
+import './styles/index.css';
 import 'leaflet/dist/leaflet.css';
 import App from './App';
 

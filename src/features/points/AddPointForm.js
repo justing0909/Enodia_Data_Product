@@ -1,6 +1,6 @@
 // simple form component to add a point with name and description
 import React, { useState } from 'react';
-import { addPoint } from './api';
+import { addPoint } from '../../aws_components/api';
 
 export default function AddPointForm({ onAdd }) {
   const [form, setForm] = useState({ name: '', description: '' });

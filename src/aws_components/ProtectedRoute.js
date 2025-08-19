@@ -3,7 +3,7 @@
 // If the user is not authenticated, it redirects them to the AuthPage.
 
 import React from 'react';
-import { useAuth } from '../contexts/AuthProvider';
+import { useAuth } from './AuthProvider';
 import AuthPage from './AuthPage';
 
 export default function ProtectedRoute({ children }) {
