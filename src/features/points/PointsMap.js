@@ -181,6 +181,10 @@ export default function PointsMap({
           opacity: 1,
         });
         
+        // this specific line ensures that the line doesn't change
+        // to the original color when mouseout.
+        layer.off('mouseout');
+
         // add mouseover handler back for selected lines (for consistency)
         layer.off('mouseover');
         layer.on('mouseover', () => {

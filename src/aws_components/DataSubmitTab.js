@@ -1,7 +1,5 @@
-// === src/components/DataSubmitTab.jsx ===
+//* when ready to wire it to AWS, pass an `endpointUrl` and `onSubmit` that POSTs to the API.
 import React, { useMemo, useState } from 'react';
-
- //* when ready to wire it to AWS, pass an `endpointUrl` and `onSubmit` that POSTs to the API.
 
 
 export default function DataSubmitTab({
@@ -9,6 +7,8 @@ export default function DataSubmitTab({
   endpointUrl, // optional — used to render a cURL snippet
   onSubmit,    // optional — a function(payload) that actually does the POST later
 }) {
+
+  // state to manage form inputs, errors, and submission result
   const [form, setForm] = useState({
     name: "",
     type: "site",
@@ -16,35 +16,42 @@ export default function DataSubmitTab({
     lon: "",
     propsText: "{}",
   });
+
+  // state to manage validation errors and submission result
   const [errors, setErrors] = useState({});
   const [result, setResult] = useState(null); // { message, payload }
   const payload = useMemo(() => buildPayload(form), [form]);
 
+  // build the payload from the form state
   function buildPayload(f) {
     let props = {};
     try { props = f.propsText.trim() ? JSON.parse(f.propsText) : {}; } catch {}
     return {
       name: (f.name || "").trim(),
-      type: (f.type || "site").trim(),
+      type: (f.type || "").trim(),
       lat: f.lat === "" ? null : Number(f.lat),
       lon: f.lon === "" ? null : Number(f.lon),
       properties: props,
     };
   }
 
+  // validate the payload
   function validate(p) {
     const e = {};
-    if (!p.name) e.name = "Required";
-    if (p.lat === null || !Number.isFinite(p.lat) || p.lat < -90 || p.lat > 90) e.lat = "-90 to 90";
-    if (p.lon === null || !Number.isFinite(p.lon) || p.lon < -180 || p.lon > 180) e.lon = "-180 to 180";
+    if (!p.name) e.name = "Asset Name is Required";
+    if (!p.type) e.type = "Asset Type is Required";
+    if (p.lat === null || !Number.isFinite(p.lat) || p.lat < -90 || p.lat > 90) e.lat = "Please enter a valid latitude.";
+    if (p.lon === null || !Number.isFinite(p.lon) || p.lon < -180 || p.lon > 180) e.lon = "Please enter a valid longitude.";
     try { JSON.parse(form.propsText || "{}"); } catch { e.propsText = "Invalid JSON"; }
     return e;
   }
 
+  // handle input changes
   function handleChange(field, value) {
     setForm((s) => ({ ...s, [field]: value }));
   }
 
+  // handle form submission
   async function handleSubmit(e) {
     e.preventDefault();
     const eMap = validate(payload);
@@ -52,7 +59,7 @@ export default function DataSubmitTab({
     if (Object.keys(eMap).length) return;
 
     // front-end only
-    const message = `Thanks for your submission! This feature still needs to connect to the dynamic AWS table via ${endpointHint}.`;
+    const message = `Thanks for your submission! This feature still needs to connect to the dynamic AWS table.`;
     setResult({ message, payload });
 
     // if a developer provided onSubmit, allow them to tap into it (e.g., console.log or draft POST)
@@ -72,40 +79,54 @@ export default function DataSubmitTab({
     : null;
 
   return (
+    // main form container (header)
     <div className="panel simulation-panel" style={{ padding: 8 }}>
       <div className="filter-bar" style={{ alignItems: "center", justifyContent: "space-between" }}>
-        <h3 className="panel-title" style={{ margin: 0 }}>Data (Beta)</h3>
-        <span style={{ fontSize: 12, color: "var(--fg-muted)" }}>Front‑end only • Not yet wired</span>
+        <h3 className="panel-title" style={{ margin: 0 }}>Data Submission Form (Beta)</h3>
+        <span style={{ fontSize: 12, color: "var(--fg-muted)" }}>*Required</span>
       </div>
 
+      {/* main form for data submission */}
       <form onSubmit={handleSubmit} className="folder-content" style={{ padding: 12, marginTop: 8 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
-            <label>Name</label>
+
+            {/* Name field */}
+            <label>Name*</label>
             <input value={form.name} onChange={(e)=>handleChange('name', e.target.value)} placeholder="e.g., Substation A" style={inputStyle(errors.name)} />
             {errors.name && <small style={errStyle}>{errors.name}</small>}
           </div>
+
+          {/* Type field */}
           <div>
-            <label>Type</label>
-            <input value={form.type} onChange={(e)=>handleChange('type', e.target.value)} placeholder="e.g., substation" style={inputStyle()} />
+            <label>Type*</label>
+            <input value={form.type} onChange={(e)=>handleChange('type', e.target.value)} placeholder="e.g., substation" style={inputStyle(errors.type)} />
+            {errors.type && <small style={errStyle}>{errors.type}</small>}
           </div>
+
+          {/* Latitude field */}
           <div>
-            <label>Latitude</label>
+            <label>Latitude*</label>
             <input value={form.lat} onChange={(e)=>handleChange('lat', e.target.value)} placeholder="43.6591" style={inputStyle(errors.lat)} />
             {errors.lat && <small style={errStyle}>{errors.lat}</small>}
           </div>
+
+          {/* Longitude field */}
           <div>
-            <label>Longitude</label>
+            <label>Longitude*</label>
             <input value={form.lon} onChange={(e)=>handleChange('lon', e.target.value)} placeholder="-70.2568" style={inputStyle(errors.lon)} />
             {errors.lon && <small style={errStyle}>{errors.lon}</small>}
           </div>
         </div>
+
+        {/* Properties (JSON) field */}
         <div style={{ marginTop: 12 }}>
           <label>Properties (JSON)</label>
           <textarea rows={6} value={form.propsText} onChange={(e)=>handleChange('propsText', e.target.value)} style={{ ...inputStyle(errors.propsText), fontFamily: 'monospace', fontSize: 12 }} />
           {errors.propsText && <small style={errStyle}>{errors.propsText}</small>}
         </div>
 
+        {/* Submit and Clear buttons */}
         <div className="filter-bar" style={{ marginTop: 12, gap: 8 }}>
           <button className="clear-button" type="submit">Submit</button>
           <button className="desort-button" type="button" onClick={()=>{ setForm({ name: "", type: "site", lat: "", lon: "", propsText: "{}" }); setErrors({}); setResult(null); }}>Clear</button>
@@ -115,6 +136,8 @@ export default function DataSubmitTab({
       </form>
 
       {result && (
+
+        // Submission capture section
         <div className="folder-content" style={{ padding: 12, marginTop: 8 }}>
           <div style={{
             background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.35)',
@@ -124,15 +147,21 @@ export default function DataSubmitTab({
             <div style={{ fontSize: 13 }}>{result.message}</div>
           </div>
 
+          {/* Payload details */}
           <details open>
             <summary style={{ cursor: 'pointer', marginBottom: 8 }}>View payload</summary>
             <pre style={preStyle}>{JSON.stringify(result.payload, null, 2)}</pre>
             <div style={{ display: 'flex', gap: 8 }}>
+
+              {/* Copy JSON button */}
               <button className="clear-button" onClick={()=>copy(JSON.stringify(result.payload))}>Copy JSON</button>
+
+              {/* Copy cURL button if endpointUrl is provided */}
               {curl && <button className="desort-button" onClick={()=>copy(curl)}>Copy cURL</button>}
             </div>
           </details>
 
+          {/* Hint for endpointUrl */}
           {!endpointUrl && (
             <small style={{ color: 'var(--fg-muted)' }}>
               Add an <code>endpointUrl</code> prop to show a ready-to-post cURL snippet here.
@@ -144,6 +173,7 @@ export default function DataSubmitTab({
   );
 }
 
+// Styles
 const inputStyle = (hasErr) => ({
   display: 'block', width: '100%', padding: '8px', borderRadius: 4,
   border: `1px solid var(--border)`, outline: 'none',
