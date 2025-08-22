@@ -1,6 +1,6 @@
 //* when ready to wire it to AWS, pass an `endpointUrl` and `onSubmit` that POSTs to the API.
 import React, { useMemo, useState } from 'react';
-
+import Toast from './toast';
 
 export default function DataSubmitTab({
   endpointHint = "AWS API Gateway (POST) — add your URL",
@@ -8,13 +8,25 @@ export default function DataSubmitTab({
   onSubmit,    // optional — a function(payload) that actually does the POST later
 }) {
 
+  const SAMPLE_JSON =
+  `{
+    "type": "building",
+    "num_floors": 3,
+    "foundataion_type": "slab",
+    "usage": "residential",
+    "year_built": 1995,
+    "metadata": {
+      "lastUpdated": "2025-01-01",
+      }
+    }`;
+
   // state to manage form inputs, errors, and submission result
   const [form, setForm] = useState({
     name: "",
     type: "site",
     lat: "",
     lon: "",
-    propsText: "{}",
+    propsText: SAMPLE_JSON,
   });
 
   // state to manage validation errors and submission result
@@ -25,7 +37,15 @@ export default function DataSubmitTab({
   // build the payload from the form state
   function buildPayload(f) {
     let props = {};
-    try { props = f.propsText.trim() ? JSON.parse(f.propsText) : {}; } catch {}
+    try {
+      // if empty or whitespace, use empty object
+      // if it's the sample JSON, use empty object
+      if (!f.propsText.trim() || !f.propsText || f.propsText === SAMPLE_JSON) {
+        props = {};
+       } else {
+        props = JSON.parse(f.propsText);
+      }
+    } catch {}
     return {
       name: (f.name || "").trim(),
       type: (f.type || "").trim(),
@@ -42,7 +62,14 @@ export default function DataSubmitTab({
     if (!p.type) e.type = "Asset Type is Required";
     if (p.lat === null || !Number.isFinite(p.lat) || p.lat < -90 || p.lat > 90) e.lat = "Please enter a valid latitude.";
     if (p.lon === null || !Number.isFinite(p.lon) || p.lon < -180 || p.lon > 180) e.lon = "Please enter a valid longitude.";
-    try { JSON.parse(form.propsText || "{}"); } catch { e.propsText = "Invalid JSON"; }
+    try {
+      // only validate JSON if there's content and it's not the sample
+      if (form.propsText && form.propsText !== SAMPLE_JSON) {
+        JSON.parse(form.propsText);
+      }
+    } catch {
+      e.propsText = "Properties must be a valid JSON.";
+    }
     return e;
   }
 
@@ -70,9 +97,16 @@ export default function DataSubmitTab({
     }
   }
 
+  // copy JSON or cURL to clipboard with a toast confirmation
+  const [showToast, setShowToast] = useState(false);
   function copy(text) {
-    try { navigator.clipboard.writeText(text); } catch {}
-  }
+    try { navigator.clipboard.writeText(text); 
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 2000);
+        } catch (err) {
+          console.error('Failed to copy:', err);
+        }
+  };
 
   const curl = endpointUrl
     ? `curl -X POST "${endpointUrl}" -H "Content-Type: application/json" -d '${JSON.stringify(payload)}'`
@@ -122,7 +156,29 @@ export default function DataSubmitTab({
         {/* Properties (JSON) field */}
         <div style={{ marginTop: 12 }}>
           <label>Properties (JSON)</label>
-          <textarea rows={6} value={form.propsText} onChange={(e)=>handleChange('propsText', e.target.value)} style={{ ...inputStyle(errors.propsText), fontFamily: 'monospace', fontSize: 12 }} />
+          <textarea 
+            rows={6} 
+            value={form.propsText} 
+            onChange={(e)=>handleChange('propsText', e.target.value)}
+            onFocus={(e) => {
+              if (e.target.value === SAMPLE_JSON) {
+                handleChange('propsText', '');
+              }
+            }}
+            onBlur={(e) => {
+              if (e.target.value === '') {
+                handleChange('propsText', SAMPLE_JSON);
+              }
+            }}
+            style={{ 
+              ...inputStyle(errors.propsText), 
+              fontFamily: 'monospace', 
+              fontSize: 12,
+              color: form.propsText === SAMPLE_JSON ? '#aaa' : '#000',
+              whiteSpace: 'pre',
+              lineHeight: '1.4',
+            }} 
+          />
           {errors.propsText && <small style={errStyle}>{errors.propsText}</small>}
         </div>
 
@@ -168,6 +224,12 @@ export default function DataSubmitTab({
             </small>
           )}
         </div>
+      )}
+      {showToast && (
+        <Toast 
+          message="JSON copied to clipboard" 
+          onClose={() => setShowToast(false)} 
+        />
       )}
     </div>
   );

@@ -6,6 +6,7 @@ import PointsMap from './features/points/PointsMap';
 
 // Style Imports
 import logo from './img_assets/enodia_logo.png';
+import accountDefault from './img_assets/account_default.png';
 
 // Data Imports
 import sampleSites from './features/points/sampleData.json';
@@ -369,7 +370,7 @@ function UserMenu() {
   const { user, signOut } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
-  // toggle user menu open/close state (the "blue U" and sign out dropdown)
+  // toggle user menu open/close state (the "blue person" and sign out dropdown)
   return (
     <div className="user-menu" style={{ position: 'relative' }}>
       <button
@@ -404,9 +405,18 @@ function UserMenu() {
             fontWeight: '600',
           }}
         >
-          {/* //! Update so it shows the first letter of the user's email 
-          */}
-          {user?.email?.[0]?.toUpperCase() || 'U'}        {/* The "U" in the logo */}
+          <img
+            src={accountDefault}
+            alt="User avatar"
+            style={{
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              objectFit: 'cover',
+              background: 'var(--brand-color)',
+              display: 'block',
+            }}
+          />
         </div>
 
         {/* display user email (//! currently not displayed) 
