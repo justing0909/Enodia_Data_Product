@@ -14,9 +14,9 @@ const siteIcon = new L.Icon({
   shadowUrl: null,
 });
 
-// center on Augusta / Kennebec County
-const DEFAULT_CENTER = [44.3210, -69.7652]; 
-const DEFAULT_ZOOM = 11;
+// center on Lahaina / Maui County
+const DEFAULT_CENTER = [20.884215698247573, -156.67333867620937]; 
+const DEFAULT_ZOOM = 14;
 
 // component to sync map view with highlight position. this will pan to higlighted position if provided
 function MapViewSync({ highlightPos }) {

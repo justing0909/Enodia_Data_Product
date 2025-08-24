@@ -1,11 +1,11 @@
 // utils/fetchOsmLines.js
 export async function fetchOsmInfrastructure() {
-  // using Kennebec County Maine as an example area
+  // using Maui County Hawaii as an example area
 
-  // first define the area for Kennebec County Maine
+  // first define the area for Maui County Hawaii
   const areaQuery = `
     [out:json][timeout:25];
-    area["name"="Kennebec County"]["boundary"="administrative"]["admin_level"="6"];
+    area["name"="Maui County"]["boundary"="administrative"]["admin_level"="6"];
     out ids;
   `;
 
@@ -22,7 +22,7 @@ export async function fetchOsmInfrastructure() {
   }
   const areaJson = await areaRes.json();
   if (!areaJson.elements || areaJson.elements.length === 0) {
-    throw new Error('Could not find Kennebec County area');
+    throw new Error('Could not find Maui County area');
   }
 
   // Overpass returns an "area" element already when you query with area[...] in this manner,
